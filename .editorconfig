@@ -1,0 +1,114 @@
+# EditorConfig: https://editorconfig.org
+root = true
+
+# ──────────────────────────────────────────
+# Все файлы (базовые настройки)
+# ──────────────────────────────────────────
+[*]
+charset                  = utf-8
+end_of_line              = lf
+indent_style             = space
+indent_size              = 4
+tab_width                = 4
+trim_trailing_whitespace = true
+insert_final_newline     = true
+max_line_length          = 120
+
+# ──────────────────────────────────────────
+# PHP (PSR-12)
+# ──────────────────────────────────────────
+[*.php]
+charset                  = utf-8
+end_of_line              = lf
+indent_style             = space
+indent_size              = 4
+trim_trailing_whitespace = true
+insert_final_newline     = true
+max_line_length          = 120
+
+# ──────────────────────────────────────────
+# Шаблоны (Blade, Twig, Latte и др.)
+# ──────────────────────────────────────────
+[*.{blade.php,twig,html,htm,latte}]
+indent_size              = 2
+max_line_length          = 200
+
+# ──────────────────────────────────────────
+# JavaScript / TypeScript / Vue
+# ──────────────────────────────────────────
+[*.{js,jsx,ts,tsx,vue,mjs,cjs}]
+indent_size              = 2
+max_line_length          = 100
+
+# ──────────────────────────────────────────
+# CSS / SCSS / Less
+# ──────────────────────────────────────────
+[*.{css,scss,less,sass}]
+indent_size              = 2
+
+# ──────────────────────────────────────────
+# JSON / JSON5
+# ──────────────────────────────────────────
+[*.{json,json5}]
+indent_size              = 2
+insert_final_newline     = true
+
+# ──────────────────────────────────────────
+# YAML
+# ──────────────────────────────────────────
+[*.{yml,yaml}]
+indent_size              = 2
+trim_trailing_whitespace = true
+
+# ──────────────────────────────────────────
+# XML / SVG
+# ──────────────────────────────────────────
+[*.{xml,svg}]
+indent_size              = 2
+insert_final_newline     = true
+
+# ──────────────────────────────────────────
+# Markdown
+# ──────────────────────────────────────────
+[*.{md,mdx}]
+trim_trailing_whitespace = false   # пробелы в конце = <br> в MD
+max_line_length          = off
+
+# ──────────────────────────────────────────
+# Shell-скрипты
+# ──────────────────────────────────────────
+[*.{sh,bash,zsh}]
+end_of_line              = lf
+indent_size              = 2
+
+# ──────────────────────────────────────────
+# Makefile (требует табуляцию)
+# ──────────────────────────────────────────
+[Makefile]
+indent_style             = tab
+tab_width                = 4
+
+# ──────────────────────────────────────────
+# Docker
+# ──────────────────────────────────────────
+[{Dockerfile,*.dockerfile}]
+indent_size              = 2
+
+# ──────────────────────────────────────────
+# .env файлы
+# ──────────────────────────────────────────
+[.env*]
+trim_trailing_whitespace = true
+insert_final_newline     = true
+
+# ──────────────────────────────────────────
+# Composer / NPM
+# ──────────────────────────────────────────
+[{composer,package}{.json,.lock}]
+indent_size              = 4
+
+# ──────────────────────────────────────────
+# Git
+# ──────────────────────────────────────────
+[{.gitattributes,.gitignore,.gitmodules}]
+indent_size              = 2
