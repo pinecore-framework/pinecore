@@ -1,20 +1,17 @@
 <?php
 
-namespace Pronchev\Pinecore\Command;
+namespace Pronchev\Pinecore\Http;
 
 use Pronchev\Pinecore\ExceptionHandler;
-use Pronchev\Pinecore\Http\HttpApplication;
-use Pronchev\Pinecore\Console\ConsoleInput;
-use Pronchev\Pinecore\Console\ConsoleOutput;
 
-final class ServerStartCommand
+final class WorkerRunner
 {
     public function __construct(
         private readonly HttpApplication  $app,
         private readonly ExceptionHandler $exceptionHandler,
     ) {}
 
-    public function __invoke(ConsoleInput $input, ConsoleOutput $output): int
+    public function run(): void
     {
         $maxRequests = (int) ($_SERVER['MAX_REQUESTS'] ?? 0);
 
@@ -34,7 +31,5 @@ final class ServerStartCommand
                 break;
             }
         }
-
-        return 0;
     }
 }

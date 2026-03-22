@@ -35,7 +35,7 @@ HTTP → Caddy (:80) → /worker.php → FrankenPHP worker loop
 | Path | Purpose |
 |---|---|
 | `src/Kernel.php` | One-time bootstrap |
-| `src/Http/` | `HttpApplication`, `Request`, `Response`, `Router`, `RouteDefinition`, `MiddlewarePipeline`, `HttpException` |
+| `src/Http/` | `HttpApplication`, `WorkerRunner`, `Request`, `Response`, `Router`, `RouteDefinition`, `MiddlewarePipeline`, `HttpException` |
 | `src/Console/` | `ConsoleApplication`, `ConsoleRouter`, `ConsoleInput`, `ConsoleOutput`, `ConsoleDefinition` |
 | `src/Auth/` | `JwtService`, `AuthMiddleware`, `AuthContext`, `AuthException`, `UserProviderInterface` |
 | `src/Log/` | `StdoutLogger`, `FileLogger`, `CompositeLogger`, `NullLogger` |
@@ -44,6 +44,23 @@ HTTP → Caddy (:80) → /worker.php → FrankenPHP worker loop
 | `src/ExceptionHandler.php` | Catches `Throwable` escaping the worker loop |
 | `src/Config.php` | Static config loader: `Config::get('section.key')` |
 | `src/ContainerFactory.php` | Builds PHP-DI container from `config/services.php` |
+
+## Worker entrypoint
+
+FrankenPHP запускается бинарником (`frankenphp run --config Caddyfile`), который сам стартует PHP-воркеры. `worker.php` приложения должен:
+
+```php
+use Pronchev\Pinecore\Kernel;
+use Pronchev\Pinecore\Http\WorkerRunner;
+
+require __DIR__ . '/vendor/autoload.php';
+
+Kernel::boot(__DIR__);
+Kernel::container()->get(WorkerRunner::class)->run();
+```
+
+`WorkerRunner` резолвится через DI autowiring, конфигурировать не нужно.
+`MAX_REQUESTS` env var ограничивает число запросов на воркер (0 = без лимита).
 
 ## HTTP
 
