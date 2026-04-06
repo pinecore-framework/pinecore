@@ -22,6 +22,11 @@ class ContainerFactory
 
         $builder->useAutowiring(true);
 
+        $builder->addDefinitions([
+            Config::class      => $config,
+            Environment::class => $env,
+        ]);
+
         $routesFile = $basePath . '/config/routes.php';
         if (file_exists($routesFile)) {
             $routes = require $routesFile;
