@@ -12,16 +12,16 @@ No lint or test commands configured yet.
 
 ## Knowledge base
 
-Detailed implementation docs: [.claude/INDEX.md](.claude/INDEX.md)
+Full index: [.claude/README.md](.claude/README.md)
 
-- [Architecture & request lifecycle](.claude/kb/architecture.md)
-- [Bootstrap: Kernel, Config, Environment, ContainerFactory](.claude/kb/bootstrap.md)
-- [HTTP layer: Request, Response, Router, Middleware](.claude/kb/http.md)
-- [Worker entrypoint & WorkerRunner](.claude/kb/worker.md)
-- [Auth: JWT, AuthMiddleware](.claude/kb/auth.md)
-- [Logging](.claude/kb/logging.md)
-- [ORM: MongoDB, entities, repositories](.claude/kb/orm.md)
-- [Console](.claude/kb/console.md)
+- [Architecture & request lifecycle](.claude/architecture/overview.md)
+- [Bootstrap: Kernel, Config, Environment, ContainerFactory](.claude/architecture/bootstrap.md)
+- [HTTP layer: Request, Response, Router, Middleware](.claude/architecture/http.md)
+- [Worker entrypoint & WorkerRunner](.claude/architecture/worker.md)
+- [Auth: JWT, AuthMiddleware](.claude/architecture/auth.md)
+- [Logging](.claude/architecture/logging.md)
+- [ORM: MongoDB, entities, repositories](.claude/architecture/orm.md)
+- [Console](.claude/architecture/console.md)
 
 ## Code Style
 
