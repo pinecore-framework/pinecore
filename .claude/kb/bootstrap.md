@@ -41,16 +41,27 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
 
 - Autowiring включён всегда
 - В prod: `$builder->enableCompilation($basePath . '/var/cache/prod/')`
-- Загружает `$basePath/config/services.php` — файл должен вернуть `callable($builder, $config, $basePath)`
+- Загружает `$basePath/config/routes.php` (если есть) — файл возвращает `RouteDefinition[]`,
+  фреймворк автоматически создаёт `Router` и регистрирует его в контейнере
+- Загружает `$basePath/config/services.php` (если есть) — файл возвращает
+  `callable($builder, $config, $basePath)`; загружается после routes.php и может переопределить
+  любые определения, включая `Router::class`
 
-**Пример `config/services.php`:**
+**`config/routes.php`** (конвенция, предпочтительный способ):
+```php
+use Pronchev\Pinecore\Http\RouteDefinition;
+
+return [
+    new RouteDefinition('GET',  '/users/{id}', GetUserController::class, [AuthMiddleware::class]),
+    new RouteDefinition('POST', '/users',      CreateUserController::class, [AuthMiddleware::class]),
+];
+```
+
+**`config/services.php`** (для DI-биндингов и переопределений):
 ```php
 return function (ContainerBuilder $builder, Config $config, string $basePath): void {
     $builder->addDefinitions([
         UserProviderInterface::class => fn($c) => $c->get(UserRepository::class),
-        Router::class => fn() => new Router([
-            new RouteDefinition('GET', '/users/{id}', GetUserController::class, [AuthMiddleware::class]),
-        ]),
     ]);
 };
 ```

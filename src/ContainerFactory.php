@@ -4,6 +4,7 @@ namespace Pronchev\Pinecore;
 
 use DI\Container;
 use DI\ContainerBuilder;
+use Pronchev\Pinecore\Http\Router;
 
 class ContainerFactory
 {
@@ -20,6 +21,14 @@ class ContainerFactory
         }
 
         $builder->useAutowiring(true);
+
+        $routesFile = $basePath . '/config/routes.php';
+        if (file_exists($routesFile)) {
+            $routes = require $routesFile;
+            $builder->addDefinitions([
+                Router::class => fn() => new Router($routes),
+            ]);
+        }
 
         $servicesFile = $basePath . '/config/services.php';
         if (file_exists($servicesFile)) {
