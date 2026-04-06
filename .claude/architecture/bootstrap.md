@@ -41,8 +41,10 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
 
 - Autowiring включён всегда
 - В prod: `$builder->enableCompilation($basePath . '/var/cache/prod/')`
-- Автоматически регистрирует `Config::class` и `Environment::class` в контейнере — любой класс
-  может получить их через DI без ручного биндинга в `services.php`
+- Автоматически регистрирует `Config::class`, `Environment::class` и `LoggerInterface::class`
+  в контейнере — любой класс может получить их через DI без ручного биндинга в `services.php`
+- `LoggerInterface` по умолчанию резолвится в `CompositeLogger([StdoutLogger])`;
+  если задан `log.file` — добавляется `FileLogger`
 - Загружает `$basePath/config/routes.php` (если есть) — файл возвращает `RouteDefinition[]`,
   фреймворк автоматически создаёт `Router` и регистрирует его в контейнере
 - Загружает `$basePath/config/services.php` (если есть) — файл возвращает

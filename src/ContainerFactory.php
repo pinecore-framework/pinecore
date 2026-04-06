@@ -5,6 +5,10 @@ namespace Pronchev\Pinecore;
 use DI\Container;
 use DI\ContainerBuilder;
 use Pronchev\Pinecore\Http\Router;
+use Pronchev\Pinecore\Log\CompositeLogger;
+use Pronchev\Pinecore\Log\FileLogger;
+use Pronchev\Pinecore\Log\StdoutLogger;
+use Psr\Log\LoggerInterface;
 
 class ContainerFactory
 {
@@ -25,6 +29,13 @@ class ContainerFactory
         $builder->addDefinitions([
             Config::class      => $config,
             Environment::class => $env,
+            LoggerInterface::class => function ($c) use ($config) {
+                $loggers = [$c->get(StdoutLogger::class)];
+                if ($config->get('log.file')) {
+                    $loggers[] = $c->get(FileLogger::class);
+                }
+                return new CompositeLogger($loggers);
+            },
         ]);
 
         $routesFile = $basePath . '/config/routes.php';
