@@ -68,3 +68,21 @@ $response->emit(): void                      // http_response_code + headers + e
 throw new HttpException('Forbidden', 403);
 // → перехватывается в HttpApplication::dispatch() → Response::error(message, code)
 ```
+
+## HttpApplication — конфигурационные зависимости
+
+`HttpApplication` требует наличия ключа `cors` в `config/app.php`. Конфиг читается при каждом
+запросе (в т.ч. OPTIONS-preflight). Если ключ отсутствует — бросается
+`\RuntimeException('app.cors config is missing')`.
+
+```php
+// config/app.php
+return [
+    'cors' => [
+        'origins'  => '*',
+        'methods'  => 'GET, POST, PUT, DELETE, OPTIONS',
+        'headers'  => 'Content-Type, Authorization',
+        'max_age'  => '86400',
+    ],
+];
+```

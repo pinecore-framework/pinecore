@@ -78,7 +78,7 @@ final class HttpApplication
     /** @return array<string, string> */
     private function corsHeaders(): array
     {
-        $cors = $this->config->get('app.cors');
+        $cors = $this->corsConfig();
         return [
             'Access-Control-Allow-Origin'  => $cors['origins'],
             'Access-Control-Allow-Methods' => $cors['methods'],
@@ -88,10 +88,20 @@ final class HttpApplication
 
     private function emitCorsHeaders(): void
     {
-        $cors = $this->config->get('app.cors');
+        $cors = $this->corsConfig();
         header('Access-Control-Allow-Origin: '  . $cors['origins']);
         header('Access-Control-Allow-Methods: ' . $cors['methods']);
         header('Access-Control-Allow-Headers: ' . $cors['headers']);
         header('Access-Control-Max-Age: '       . $cors['max_age']);
+    }
+
+    /** @return array<string, mixed> */
+    private function corsConfig(): array
+    {
+        $cors = $this->config->get('app.cors');
+        if (!is_array($cors)) {
+            throw new \RuntimeException('app.cors config is missing');
+        }
+        return $cors;
     }
 }
