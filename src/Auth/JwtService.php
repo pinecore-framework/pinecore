@@ -45,6 +45,7 @@ final class JwtService
         $now   = new DateTimeImmutable();
         $token = $this->jwtConfig->builder()
             ->issuedAt($now)
+            ->canOnlyBeUsedAfter($now)
             ->expiresAt($now->modify("+{$this->accessTtl} seconds"))
             ->relatedTo($userId)
             ->getToken($this->jwtConfig->signer(), $this->jwtConfig->signingKey());
