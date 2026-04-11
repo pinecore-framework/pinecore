@@ -20,9 +20,7 @@ final class MongoHydrator
             $propName = $field->property->getName();
             $value = $doc[$key] ?? null;
 
-            if ($value instanceof \MongoDB\Model\BSONArray) {
-                $value = $value->getArrayCopy();
-            }
+            $value = $this->normalizeBson($value);
 
             if ($field->isEmbedded && $value !== null) {
                 $value = $this->hydrate($field->embeddedClass, $this->toArray($value));
@@ -70,6 +68,19 @@ final class MongoHydrator
             $result[$property->getName()] = $property->getValue($embedded);
         }
         return $result;
+    }
+
+    private function normalizeBson(mixed $value): mixed
+    {
+        if ($value instanceof \MongoDB\Model\BSONArray) {
+            return array_map($this->normalizeBson(...), $value->getArrayCopy());
+        }
+
+        if ($value instanceof BSONDocument) {
+            return array_map($this->normalizeBson(...), iterator_to_array($value));
+        }
+
+        return $value;
     }
 
     private function toArray(array|BSONDocument $doc): array
