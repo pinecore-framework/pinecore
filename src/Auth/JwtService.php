@@ -28,8 +28,8 @@ final class JwtService
         $signer = new Sha256();
         $key    = InMemory::plainText($secret);
 
-        $this->jwtConfig = Configuration::forSymmetricSigner($signer, $key);
-        $this->jwtConfig->setValidationConstraints(
+        $jwtConfig = Configuration::forSymmetricSigner($signer, $key);
+        $this->jwtConfig = $jwtConfig->withValidationConstraints(
             new SignedWith($signer, $key),
             new StrictValidAt(new class implements ClockInterface {
                 public function now(): DateTimeImmutable
