@@ -24,7 +24,7 @@ class ContainerFactory
             $builder->enableCompilation($cacheDir);
         }
 
-        $builder->useAutowiring(true);
+        $builder->useAttributes(true);
 
         $builder->addDefinitions([
             Config::class      => $config,
