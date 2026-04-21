@@ -13,13 +13,30 @@ final class ConsoleApplication
 
     public function run(array $argv): int
     {
-        $commandStr = $argv[1] ?? null;
-
-        if ($commandStr === null || $commandStr === 'help') {
+        if (!isset($argv[1]) || $argv[1] === 'help') {
             $this->printHelp($argv[2] ?? null);
             return 0;
         }
 
+        // Split argv (after script name) into positional command tokens and option tokens.
+        // Positional tokens form the command string matched against command signatures
+        // (e.g. "users:create admin"). Tokens from the first "--" onwards are options.
+        $positional   = [];
+        $optionTokens = [];
+        $inOptions    = false;
+        for ($i = 1, $n = count($argv); $i < $n; $i++) {
+            $tok = $argv[$i];
+            if (!$inOptions && str_starts_with($tok, '--')) {
+                $inOptions = true;
+            }
+            if ($inOptions) {
+                $optionTokens[] = $tok;
+            } else {
+                $positional[] = $tok;
+            }
+        }
+
+        $commandStr = implode(' ', $positional);
         $match = $this->router->match($commandStr);
 
         if (!$match->found) {
@@ -31,7 +48,7 @@ final class ConsoleApplication
         $input  = ConsoleInput::parse(
             $commandStr,
             $match->pathParams,
-            array_slice($argv, 2),
+            $optionTokens,
             $match->definition->options,
         );
         $output  = new ConsoleOutput();
