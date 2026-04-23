@@ -3,13 +3,13 @@
 ## Общая схема
 
 ```
-HTTP → Caddy (:80) → /worker.php → FrankenPHP worker loop
+HTTP → /worker.php → worker loop
     Kernel::boot($basePath)  [один раз при старте]
       → Environment::detect()        // читает APP_ENV, дефолт 'dev'
       → Config::load($configDir)     // config/*.php + config/env/{env}.php + config/env/local.php
       → ContainerFactory::build()    // PHP-DI, в prod компилируется в var/cache/prod/
-    loop (WorkerRunner::run()):
-      frankenphp_handle_request(fn() =>
+    loop (WorkerRunner::run($loop)):
+      $loop(fn() =>                     // адаптер приложения, возвращает keepRunning
         HttpApplication::handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER)
           → Request::fromGlobals()           // парсит метод, путь, заголовки, JSON body
           → OPTIONS? → CORS headers + 204    // preflight, без роутинга
@@ -32,7 +32,7 @@ HTTP → Caddy (:80) → /worker.php → FrankenPHP worker loop
 | `src/Environment.php` | `Environment` | Читает `APP_ENV`, метод `isProd()` |
 | `src/Config.php` | `Config` | Загружает `config/*.php`, deep-merge с env-оверрайдами; `get('a.b.c')` |
 | `src/ContainerFactory.php` | `ContainerFactory` | Строит PHP-DI контейнер; в prod включает compilation |
-| `src/Http/WorkerRunner.php` | `WorkerRunner` | Цикл FrankenPHP, MAX_REQUESTS, gc |
+| `src/Http/WorkerRunner.php` | `WorkerRunner` | Worker-цикл, MAX_REQUESTS, gc |
 | `src/Http/HttpApplication.php` | `HttpApplication` | CORS, роутинг, dispatch, обработка исключений |
 | `src/Http/Request.php` | `Request` | Иммутабельный; `body()`, `get(key)`, `withContext()` |
 | `src/Http/Response.php` | `Response` | `json()`, `error()`, `withHeader()`, `emit()` |

@@ -1,6 +1,6 @@
 {
     "name": "pronchev/pinecore",
-    "description": "Minimal PHP framework for FrankenPHP long-running workers",
+    "description": "Minimal PHP framework for long-running workers",
     "type": "library",
     "license": "MIT",
     "require": {

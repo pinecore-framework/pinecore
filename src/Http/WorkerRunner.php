@@ -11,18 +11,19 @@ final class WorkerRunner
         private readonly ExceptionHandler $exceptionHandler,
     ) {}
 
-    public function run(): void
+    public function run(?callable $loop = null): void
     {
+        if ($loop === null) {
+            $this->handle();
+            $this->app->terminate();
+            return;
+        }
+
+        $handler = fn () => $this->handle();
         $maxRequests = (int) ($_SERVER['MAX_REQUESTS'] ?? 0);
 
         for ($n = 0; !$maxRequests || $n < $maxRequests; ++$n) {
-            $keepRunning = frankenphp_handle_request(function (): void {
-                try {
-                    $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
-                } catch (\Throwable $e) {
-                    $this->exceptionHandler->handleException($e);
-                }
-            });
+            $keepRunning = $loop($handler);
 
             $this->app->terminate();
             gc_collect_cycles();
@@ -30,6 +31,15 @@ final class WorkerRunner
             if (!$keepRunning) {
                 break;
             }
+        }
+    }
+
+    private function handle(): void
+    {
+        try {
+            $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
+        } catch (\Throwable $e) {
+            $this->exceptionHandler->handleException($e);
         }
     }
 }

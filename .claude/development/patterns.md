@@ -105,7 +105,7 @@ $value = Config::get('section.key', $default);
 ```php
 // Внутри worker.php
 $runner = new WorkerRunner($kernel);
-$runner->run(); // FrankenPHP loop: запрос → роутинг → middleware → контроллер → ответ
+$runner->run(); // worker loop: запрос → роутинг → middleware → контроллер → ответ
 ```
 
 `WorkerRunner` перехватывает исключения и возвращает корректный HTTP-ответ даже при ошибке.

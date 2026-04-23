@@ -2,19 +2,17 @@
 
 ## Запуск worker
 
-FrankenPHP стартует PHP-воркеры через Caddyfile:
-
-```bash
-frankenphp run --config Caddyfile
-```
-
-Воркер-скрипт приложения подключается к фреймворку через `WorkerRunner`:
+Фреймворк запускается удобным для пользователя способом — способ запуска выбирает само приложение. Воркер-скрипт приложения подключается к фреймворку через `WorkerRunner`:
 
 ```php
-// worker.php
-$runner = new WorkerRunner($kernel);
+// worker.php — один запрос (классический SAPI)
 $runner->run();
+
+// worker.php — worker-петля, адаптер инжектится приложением
+$runner->run(fn ($handler) => frankenphp_handle_request($handler));
 ```
+
+Адаптер получает `callable $handler` и возвращает `bool` (продолжать ли цикл). `MAX_REQUESTS`, `terminate()` и `gc_collect_cycles()` `WorkerRunner` делает сам между итерациями.
 
 ---
 
