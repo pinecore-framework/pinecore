@@ -46,25 +46,6 @@
 
 ---
 
-## Работа с задачами (.claude/tasks/)
-
-При старте новой ветки:
-```bash
-cp .claude/tasks/_template.md .claude/tasks/active/<branch-name>.md
-```
-
-Правила:
-1. Во время разработки — редактируй только свой task-файл
-2. Можно добавить `decisions/ADR-NNN.md` (новый файл — нет конфликтов)
-3. Не трогай `architecture/` и `development/` — только в main
-
-При мерже в main:
-- Читай секцию "Merge Notes" в task-файле
-- Обновляй стабильные docs если нужно
-- Перемести: `tasks/active/<branch>.md` → `tasks/completed/<branch>.md`
-
----
-
 ## Когда писать ADR
 
 Создай `decisions/ADR-NNN-title.md` когда:

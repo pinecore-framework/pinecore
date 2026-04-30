@@ -19,7 +19,6 @@
 | ORM (MongoDB) | [`architecture/orm.md`](architecture/orm.md) |
 | Console-команды | [`architecture/console.md`](architecture/console.md) |
 | Почему архитектура именно такая | [`decisions/README.md`](decisions/README.md) |
-| Контекст текущей задачи | [`tasks/active/`](tasks/active/) |
 
 ## Структура директории
 
@@ -40,23 +39,16 @@
 │   ├── conventions.md           # Соглашения: коммиты, ветки, неймспейсы
 │   ├── commands.md              # Команды запуска и утилиты
 │   └── testing.md               # Отладка и тестирование
-├── decisions/                   # Architecture Decision Records (ADR)
-│   ├── README.md                # Индекс ADR + как писать
-│   └── ADR-NNN-*.md
-└── tasks/                       # Контекст задач (по одному файлу на ветку)
-    ├── _template.md             # Шаблон для новой задачи
-    ├── active/                  # Активные ветки
-    └── completed/               # Смерженные задачи
+└── decisions/                   # Architecture Decision Records (ADR)
+    ├── README.md                # Индекс ADR + как писать
+    └── ADR-NNN-*.md
 ```
 
 ## Правила обновления
 
 **Во время разработки в feature-ветке:**
-- Пиши только в `tasks/active/<branch-name>.md` (свой файл)
 - Можешь добавить `decisions/ADR-NNN.md` (новый файл — нет конфликтов)
 - НЕ трогай `architecture/` и `development/` — только в main
 
-**После мержа в main (интегратор):**
-- Читает секцию "Merge Notes" в task-файле
-- При необходимости обновляет `architecture/` и `development/`
-- Перемещает: `tasks/active/<branch>.md` → `tasks/completed/<branch>.md`
+**После мержа в main:**
+- При необходимости обновляй `architecture/` и `development/`

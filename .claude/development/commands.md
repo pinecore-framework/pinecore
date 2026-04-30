@@ -58,12 +58,3 @@ docker compose run --rm --no-deps php sh   # Шелл в контейнере
 ```
 
 Образ описан в `.docker/php/Dockerfile` (PHP 8.2-cli-alpine + ext-mongodb + composer). HTTP-сервиса в compose нет — только CLI для composer/phpunit.
-
----
-
-## Git shortcuts
-
-```bash
-# Создать task-файл для новой ветки
-cp .claude/tasks/_template.md .claude/tasks/active/<branch-name>.md
-```
