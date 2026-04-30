@@ -8,7 +8,7 @@ final class Request
      * @param array<string, string> $query
      * @param array<string, string> $pathParams
      * @param array<string, string> $headers  lowercase-hyphen keys (e.g. 'content-type', 'authorization')
-     * @param array<string, mixed>  $body     decoded JSON body
+     * @param array<array-key, mixed> $body   parsed body (JSON object/list, form fields, or [])
      * @param array<string, string> $cookies  $_COOKIE
      * @param array<string, mixed>  $files    $_FILES
      * @param array<string, mixed>  $context  middleware-injected values (e.g. AuthContext)
@@ -25,9 +25,15 @@ final class Request
         private array          $context = [],
     ) {}
 
+    /** @return array<array-key, mixed> */
     public function body(): array
     {
         return $this->body;
+    }
+
+    public function input(string $key, mixed $default = null): mixed
+    {
+        return $this->body[$key] ?? $default;
     }
 
     public function get(string $key, mixed $default = null): mixed
@@ -58,20 +64,59 @@ final class Request
     }
 
     public static function fromGlobals(
-        array $get, array $cookies, array $files, array $server, string $rawBody
+        array $get, array $post, array $cookies, array $files, array $server, string $rawBody
     ): self {
         $method  = strtoupper($server['REQUEST_METHOD'] ?? 'GET');
         $uri     = $server['REQUEST_URI'] ?? '/';
         $path    = parse_url($uri, PHP_URL_PATH) ?: '/';
         $headers = self::extractHeaders($server);
 
-        $body = [];
-        $contentType = $headers['content-type'] ?? '';
-        if (str_contains($contentType, 'application/json') && $rawBody !== '') {
-            $body = json_decode($rawBody, true, flags: JSON_THROW_ON_ERROR);
-        }
+        $body = self::parseBody($method, $headers['content-type'] ?? '', $post, $rawBody);
 
         return new self($method, $path, $get, [], $headers, $body, $cookies, $files);
+    }
+
+    /**
+     * @param array<string, mixed> $post
+     * @return array<array-key, mixed>
+     */
+    private static function parseBody(string $method, string $contentType, array $post, string $rawBody): array
+    {
+        if ($contentType === '') {
+            return [];
+        }
+
+        if (str_contains($contentType, 'application/json')) {
+            if ($rawBody === '') {
+                return [];
+            }
+            try {
+                $decoded = json_decode($rawBody, true, flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                throw new HttpException('Invalid JSON body', 400);
+            }
+            if (!is_array($decoded)) {
+                throw new HttpException('JSON body must be an object or array', 400);
+            }
+            return $decoded;
+        }
+
+        if (str_contains($contentType, 'multipart/form-data')) {
+            return $post;
+        }
+
+        if (str_contains($contentType, 'application/x-www-form-urlencoded')) {
+            if ($method === 'POST') {
+                return $post;
+            }
+            if ($rawBody === '') {
+                return [];
+            }
+            parse_str($rawBody, $parsed);
+            return $parsed;
+        }
+
+        return [];
     }
 
     /** @return array<string, string> */

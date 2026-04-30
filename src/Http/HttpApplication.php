@@ -19,24 +19,28 @@ final class HttpApplication
 
     public function handleRequest(array $get, array $post, array $cookie, array $files, array $server): void
     {
-        $rawBody = (string) file_get_contents('php://input');
-        $request = Request::fromGlobals($get, $cookie, $files, $server, $rawBody);
+        $method = strtoupper($server['REQUEST_METHOD'] ?? 'GET');
 
-        // OPTIONS preflight — respond immediately with CORS headers, no routing
-        if ($request->method === 'OPTIONS') {
+        // OPTIONS preflight — respond immediately with CORS headers, no routing or body parsing
+        if ($method === 'OPTIONS') {
             $this->emitCorsHeaders();
             http_response_code(204);
             return;
         }
 
-        $response = $this->dispatch($request);
+        $rawBody  = (string) file_get_contents('php://input');
+        $response = $this->dispatch($get, $post, $cookie, $files, $server, $rawBody);
         $response = $response->withHeaders($this->corsHeaders());
         $response->emit();
     }
 
-    private function dispatch(Request $request): Response
-    {
+    private function dispatch(
+        array $get, array $post, array $cookie, array $files, array $server, string $rawBody
+    ): Response {
+        $request = null;
         try {
+            $request = Request::fromGlobals($get, $post, $cookie, $files, $server, $rawBody);
+
             $match = $this->router->match($request->method, $request->path);
 
             if ($match->methodNotAllowed) {
@@ -58,13 +62,11 @@ final class HttpApplication
             return Response::error($e->getMessage(), 401);
         } catch (HttpException $e) {
             return Response::error($e->getMessage(), $e->getCode());
-        } catch (\JsonException) {
-            return Response::error('Invalid JSON body', 400);
         } catch (\Throwable $e) {
             $this->logger->error('Unhandled exception during dispatch', [
                 'exception' => $e,
-                'method'    => $request->method,
-                'path'      => $request->path,
+                'method'    => $request?->method ?? ($server['REQUEST_METHOD'] ?? 'UNKNOWN'),
+                'path'      => $request?->path   ?? ($server['REQUEST_URI']    ?? 'UNKNOWN'),
             ]);
             return Response::error('Internal Server Error', 500);
         }

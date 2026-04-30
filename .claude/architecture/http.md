@@ -37,19 +37,39 @@ interface MiddlewareInterface
 Иммутабельный объект. Конструктор принимает именованные параметры.
 
 ```php
-$request->method          // 'GET', 'POST', ...
-$request->path            // '/users/123'
-$request->query           // $_GET
-$request->pathParams      // ['id' => '123'] — устанавливается роутером
-$request->headers         // lowercase-hyphen: 'content-type', 'authorization'
+$request->method                    // 'GET', 'POST', ...
+$request->path                      // '/users/123'
+$request->query                     // $_GET
+$request->pathParams                // ['id' => '123'] — устанавливается роутером
+$request->headers                   // lowercase-hyphen: 'content-type', 'authorization'
 $request->cookies
 $request->files
-$request->body()          // decoded JSON array (только если Content-Type: application/json)
-$request->get('auth')     // значение из context, установленного middleware
+$request->body()                    // распарсенное тело (см. Content-Type ниже)
+$request->input('email')            // значение поля из body или null
+$request->input('email', 'def')     // с дефолтом
+$request->get('auth')               // значение из context, установленного middleware
 $request->withContext('key', $value): self   // иммутабельное добавление в context
 ```
 
 **Разбор заголовков:** `HTTP_*` из `$_SERVER` → lowercase-hyphen. `CONTENT_TYPE` тоже нормализуется.
+
+### Парсинг тела по `Content-Type`
+
+`Request::fromGlobals` решает, как наполнить `body` исходя из заголовка:
+
+| Content-Type | Источник `body()` |
+|---|---|
+| `application/json` (с любым `; charset=...`) | `json_decode($rawBody, true)` |
+| `application/x-www-form-urlencoded`, метод `POST` | `$_POST` |
+| `application/x-www-form-urlencoded`, прочие методы (`PUT`/`PATCH`/...) | `parse_str($rawBody, ...)` |
+| `multipart/form-data` (boundary) | `$_POST` |
+| Пусто или другое | `[]` |
+
+**Ошибки парсинга** бросают `HttpException(400)` прямо из `fromGlobals`:
+- невалидный JSON → `'Invalid JSON body'`
+- JSON-скаляр или `null` на корне → `'JSON body must be an object or array'` (top-level `[...]` валиден)
+
+`HttpApplication::dispatch` ловит `HttpException` и формирует `Response::error(message, 400)`. Контроллер до невалидного тела не доходит.
 
 ## Response (`src/Http/Response.php`)
 
