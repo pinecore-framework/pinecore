@@ -56,6 +56,14 @@ exit($app->run($argv));
 Команды: `bin/console <signature> [--option=value] [--flag]`
 Help: `bin/console help` или `bin/console help <signature>`
 
+## Команды, поставляемые фреймворком
+
+| Сигнатура | Хендлер | Описание |
+|---|---|---|
+| `mongo:ensure-indexes` | `Pronchev\Pinecore\Orm\Console\EnsureIndexesCommand` | Раскатывает `#[Index]` атрибуты в MongoDB. См. `architecture/orm.md`. |
+
+Регистрируются приложением в его console-конфиге наравне со своими командами — фреймворк сам ничего не регистрирует.
+
 ## Argv parsing
 
 `ConsoleInput::parse($commandStr, $pathParams, $args, $options)`:

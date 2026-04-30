@@ -10,6 +10,7 @@
 | `#[Field(name: 'x')]` | свойство | Поле с другим именем в MongoDB |
 | `#[Embedded]` | свойство | Вложенный объект (не Entity, просто класс) |
 | `#[EmbeddedList]` | свойство | Массив вложенных объектов |
+| `#[Index]` | свойство (repeatable) | Объявить индекс на поле; раскатывается командой `mongo:ensure-indexes` |
 | `#[ForEntity(Foo::class)]` | класс репозитория | Связывает репозиторий с entity |
 
 ## Объявление Entity
@@ -87,6 +88,68 @@ final class UserRepository extends AbstractMongoRepository
 - `idField()` — `FieldMetadata` поля с `#[Id]` (бросает `LogicException`, если нет)
 
 `#[Collection]` обязателен только для классов, реализующих `MongoEntity`. Embedded value-objects используют те же `#[Field]`/`#[Embedded]`/`#[EmbeddedList]` атрибуты, но сами `MongoEntity` не реализуют и `#[Collection]` им не нужен.
+
+## Индексы
+
+### Атрибут `#[Index]`
+
+Объявляется на свойстве, помеченном `#[Field]` или `#[Id]`. Repeatable — на одном поле допускается несколько индексов с разными опциями.
+
+```php
+#[Field] #[Index(unique: true, name: 'uniq_email')]
+public readonly string $email;
+
+#[Field(name: 'created_at')] #[Index(direction: -1, expireAfterSeconds: 3600)]
+public readonly int $createdAt;
+
+#[Field] #[Index(sparse: true)]
+public readonly ?string $referralCode;
+```
+
+Параметры `Index`:
+
+| Параметр | По умолчанию | Описание |
+|---|---|---|
+| `direction` | `1` | `1` asc, `-1` desc |
+| `unique` | `false` | Уникальный индекс |
+| `sparse` | `false` | Sparse-индекс (исключает документы без поля) |
+| `name` | `null` | Кастомное имя; `null` — MongoDB сгенерит |
+| `expireAfterSeconds` | `null` | TTL: автоматическое удаление документов |
+
+`#[Index]` на свойстве без `#[Field]`/`#[Id]` (или на `#[Embedded]`/`#[EmbeddedList]`) → `LogicException` при построении метаданных. Имя поля в индексе берётся с учётом `#[Field(name: ...)]` — т.е. в Mongo индекс создаётся на BSON-поле, а не на имени PHP-свойства.
+
+Метаданные доступны как `EntityMap::of(Foo::class)->indexes` — `list<IndexMetadata>` с теми же полями, что у `Index`, плюс `field` (BSON-имя).
+
+### Команда `mongo:ensure-indexes`
+
+Хендлер: `Pronchev\Pinecore\Orm\Console\EnsureIndexesCommand`. Читает список entity из `config/orm.php` (`orm.entities`), для каждого зовёт `Database::selectCollection(...)->createIndex(keys, options)`. `createIndex` идемпотентна — повторный запуск с тем же spec ничего не меняет.
+
+```php
+// config/orm.php в приложении
+return [
+    'entities' => [
+        App\Entity\User::class,
+        App\Entity\Order::class,
+    ],
+];
+```
+
+Регистрация команды — в console-конфиге приложения:
+
+```php
+new ConsoleDefinition(
+    signature:   'mongo:ensure-indexes',
+    handler:     EnsureIndexesCommand::class,
+    description: 'Create/update MongoDB indexes declared via #[Index]',
+    options: [
+        new OptionDefinition('dry-run', 'Print plan without changing DB', false),
+    ],
+)
+```
+
+Запуск: `php bin/console mongo:ensure-indexes [--dry-run]`. Пустой `orm.entities` → exit code 1 с сообщением в stderr.
+
+Embedded-классы (без `#[Collection]`) пропускаются автоматически. Удаление "лишних" индексов (которые есть в БД, но не в коде) команда **не делает** — только additive. Чистка — отдельная задача (опасно для прода).
 
 ## EntityMetadata::isNewId
 

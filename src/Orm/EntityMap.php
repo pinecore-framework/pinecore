@@ -8,6 +8,7 @@ use Pronchev\Pinecore\Orm\Attributes\Embedded;
 use Pronchev\Pinecore\Orm\Attributes\EmbeddedList;
 use Pronchev\Pinecore\Orm\Attributes\Field;
 use Pronchev\Pinecore\Orm\Attributes\Id;
+use Pronchev\Pinecore\Orm\Attributes\Index;
 use ReflectionClass;
 use ReflectionParameter;
 use ReflectionProperty;
@@ -44,16 +45,39 @@ final class EntityMap
             : $collectionAttrs[0]->newInstance()->name;
 
         $constructorParams = self::constructorParamsByName($ref);
-        $fields = [];
+        $fields  = [];
+        $indexes = [];
 
         foreach ($ref->getProperties() as $property) {
             $fieldMeta = self::buildFieldMetadata($property, $constructorParams);
             if ($fieldMeta !== null) {
                 $fields[] = $fieldMeta;
             }
+
+            $indexAttrs = $property->getAttributes(Index::class);
+            if (empty($indexAttrs)) {
+                continue;
+            }
+            if ($fieldMeta === null || $fieldMeta->isEmbedded || $fieldMeta->isEmbeddedList) {
+                throw new \LogicException(
+                    "#[Index] on {$class}::\${$property->getName()} requires #[Field] or #[Id] on the same property."
+                );
+            }
+            foreach ($indexAttrs as $indexAttr) {
+                /** @var Index $idx */
+                $idx       = $indexAttr->newInstance();
+                $indexes[] = new IndexMetadata(
+                    field: $fieldMeta->field,
+                    direction: $idx->direction,
+                    unique: $idx->unique,
+                    sparse: $idx->sparse,
+                    name: $idx->name,
+                    expireAfterSeconds: $idx->expireAfterSeconds,
+                );
+            }
         }
 
-        return new EntityMetadata($collectionName, $fields);
+        return new EntityMetadata($collectionName, $fields, $indexes);
     }
 
     /**

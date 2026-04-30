@@ -6,10 +6,12 @@ final class EntityMetadata
 {
     /**
      * @param FieldMetadata[] $fields
+     * @param IndexMetadata[] $indexes
      */
     public function __construct(
         public readonly ?string $collectionName,
         public readonly array $fields,
+        public readonly array $indexes = [],
     ) {}
 
     public function idField(): FieldMetadata
