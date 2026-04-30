@@ -1,0 +1,67 @@
+<?php
+
+namespace Tests\Pronchev\Pinecore\Orm;
+
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Pronchev\Pinecore\Orm\EntityMap;
+use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedAddress;
+use Tests\Pronchev\Pinecore\Fixtures\Orm\EntityMissingCollection;
+use Tests\Pronchev\Pinecore\Fixtures\Orm\EntityWithoutId;
+use Tests\Pronchev\Pinecore\Fixtures\Orm\MixedPropsEntity;
+use Tests\Pronchev\Pinecore\Fixtures\Orm\SimpleUser;
+
+final class EntityMapTest extends TestCase
+{
+    #[Test]
+    public function topLevelEntityExposesCollectionName(): void
+    {
+        $meta = EntityMap::of(SimpleUser::class);
+
+        self::assertSame('simple_users', $meta->collectionName);
+    }
+
+    #[Test]
+    public function embeddedClassWithoutCollectionAttributeBuilds(): void
+    {
+        // EmbeddedAddress is not a MongoEntity and has no #[Collection] —
+        // EntityMap must still build metadata for it (collectionName === null).
+        $meta = EntityMap::of(EmbeddedAddress::class);
+
+        self::assertNull($meta->collectionName);
+        self::assertCount(2, $meta->fields);
+    }
+
+    #[Test]
+    public function mongoEntityWithoutCollectionAttributeThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/Collection/');
+
+        EntityMap::of(EntityMissingCollection::class);
+    }
+
+    #[Test]
+    public function propertyWithoutOrmAttributesIsSkipped(): void
+    {
+        $meta = EntityMap::of(MixedPropsEntity::class);
+
+        $names = array_map(static fn ($f) => $f->property->getName(), $meta->fields);
+        self::assertSame(['id', 'email'], $names);
+    }
+
+    #[Test]
+    public function idFieldThrowsWhenAbsent(): void
+    {
+        $meta = EntityMap::of(EntityWithoutId::class);
+
+        $this->expectException(\LogicException::class);
+        $meta->idField();
+    }
+
+    #[Test]
+    public function metadataIsCachedPerClass(): void
+    {
+        self::assertSame(EntityMap::of(SimpleUser::class), EntityMap::of(SimpleUser::class));
+    }
+}

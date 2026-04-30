@@ -18,9 +18,21 @@ final class MongoHydrator
         foreach ($map->fields as $field) {
             $key = $field->field;
             $propName = $field->property->getName();
-            $value = $doc[$key] ?? null;
 
-            $value = $this->normalizeBson($value);
+            if (!array_key_exists($key, $doc)) {
+                if ($field->hasConstructorDefault) {
+                    continue;
+                }
+                if ($field->isNullable) {
+                    $args[$propName] = null;
+                    continue;
+                }
+                throw new \LogicException(
+                    "Missing required field '{$key}' for {$class} during hydration."
+                );
+            }
+
+            $value = $this->normalizeBson($doc[$key]);
 
             if ($field->isEmbedded && $value !== null) {
                 $value = $this->hydrate($field->embeddedClass, $this->toArray($value));
@@ -38,7 +50,10 @@ final class MongoHydrator
     }
 
     /**
-     * Convert a typed entity to an array suitable for MongoDB storage.
+     * Convert a typed entity (or an embedded value object) to an array
+     * suitable for MongoDB storage. Embedded values recurse through the
+     * same path so that #[Field(name: ...)] is honoured symmetrically
+     * with hydrate().
      */
     public function dehydrate(object $entity): array
     {
@@ -49,25 +64,15 @@ final class MongoHydrator
             $value = $field->property->getValue($entity);
 
             if ($field->isEmbedded && $value !== null) {
-                $value = $this->dehydrateEmbedded($value);
+                $value = $this->dehydrate($value);
             } elseif ($field->isEmbeddedList && is_array($value)) {
-                $value = array_map(fn($item) => $this->dehydrateEmbedded($item), $value);
+                $value = array_map(fn($item) => $this->dehydrate($item), $value);
             }
 
             $doc[$field->field] = $value;
         }
 
         return $doc;
-    }
-
-    private function dehydrateEmbedded(object $embedded): array
-    {
-        $result = [];
-        $ref = new \ReflectionClass($embedded);
-        foreach ($ref->getProperties() as $property) {
-            $result[$property->getName()] = $property->getValue($embedded);
-        }
-        return $result;
     }
 
     private function normalizeBson(mixed $value): mixed

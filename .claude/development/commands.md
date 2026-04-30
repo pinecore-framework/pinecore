@@ -9,7 +9,7 @@
 $runner->run();
 
 // worker.php — worker-петля, адаптер инжектится приложением
-$runner->run(fn ($handler) => frankenphp_handle_request($handler));
+$runner->run(fn ($handler) => /* runtime-specific request loop */);
 ```
 
 Адаптер получает `callable $handler` и возвращает `bool` (продолжать ли цикл). `MAX_REQUESTS`, `terminate()` и `gc_collect_cycles()` `WorkerRunner` делает сам между итерациями.
@@ -28,21 +28,36 @@ php bin/console <command> [options]
 
 ## Composer
 
+На хосте PHP не установлен — composer запускается через docker-compose:
+
 ```bash
-composer install          # Установить зависимости из lock
-composer update           # Обновить зависимости
-composer dump-autoload    # Пересоздать autoloader
+docker compose run --rm --no-deps php composer install
+docker compose run --rm --no-deps php composer update
+docker compose run --rm --no-deps php composer dump-autoload
 ```
 
 ---
 
-## Docker (если используется в приложении)
+## Tests
 
 ```bash
-docker compose up -d      # Запустить сервисы
-docker compose build      # Пересобрать образ
-docker compose logs -f    # Логи в реальном времени
+docker compose run --rm --no-deps php vendor/bin/phpunit
+docker compose run --rm --no-deps php vendor/bin/phpunit --testdox
+docker compose run --rm --no-deps php vendor/bin/phpunit --filter MongoHydratorTest
 ```
+
+PHPUnit 11, конфиг — `phpunit.xml` в корне. Тесты лежат в `tests/`, фикстуры — в `tests/Fixtures/`.
+
+---
+
+## Docker
+
+```bash
+docker compose build php   # Пересобрать PHP CLI образ
+docker compose run --rm --no-deps php sh   # Шелл в контейнере
+```
+
+Образ описан в `.docker/php/Dockerfile` (PHP 8.2-cli-alpine + ext-mongodb + composer). HTTP-сервиса в compose нет — только CLI для composer/phpunit.
 
 ---
 

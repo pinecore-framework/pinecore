@@ -6,7 +6,7 @@
 
 | ADR | Название | Статус |
 |-----|----------|--------|
-| — | Пока нет ADR | — |
+| [001](ADR-001-embedded-orm-symmetry.md) | Symmetric attribute-driven (de)hydration for embedded value objects | Accepted |
 
 ## Как писать ADR
 

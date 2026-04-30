@@ -8,7 +8,15 @@ Guidance for Claude Code when working with this repository.
 
 **Namespace:** `Pronchev\Pinecore\` → `src/` (PSR-4)
 
-No lint or test commands configured yet.
+## Tests
+
+PHP на хосте не установлен — всё гоняется через docker-compose:
+
+```bash
+docker compose run --rm --no-deps php vendor/bin/phpunit
+```
+
+PHPUnit 11. Конфиг — `phpunit.xml`. Тесты — `tests/`, фикстуры — `tests/Fixtures/`.
 
 ## Knowledge base
 

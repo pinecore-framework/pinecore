@@ -14,5 +14,7 @@ final class FieldMetadata
         public readonly bool $isEmbedded,
         public readonly bool $isEmbeddedList,
         public readonly ?string $embeddedClass,
+        public readonly bool $isNullable,
+        public readonly bool $hasConstructorDefault,
     ) {}
 }

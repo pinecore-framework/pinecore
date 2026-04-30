@@ -2,7 +2,7 @@
 
 ## Entrypoint (`worker.php` приложения)
 
-Фреймворк запускается удобным для пользователя способом. `WorkerRunner::run()` без аргументов обрабатывает один запрос и завершается (классический SAPI/FPM/CGI). Чтобы крутить worker-петлю, приложение передаёт свой адаптер:
+Фреймворк не привязан к конкретному рантайму. `WorkerRunner::run()` без аргументов обрабатывает один запрос и завершается (классический SAPI/FPM/CGI). Чтобы крутить worker-петлю, приложение передаёт свой адаптер:
 
 ```php
 use Pronchev\Pinecore\Kernel;
@@ -16,8 +16,11 @@ $runner = Kernel::container()->get(WorkerRunner::class);
 // Один запрос:
 $runner->run();
 
-// Или worker-петля (пример для FrankenPHP):
-$runner->run(fn ($handler) => frankenphp_handle_request($handler));
+// Или worker-петля — приложение передаёт адаптер своего рантайма:
+$runner->run(function ($handler) {
+    // вызов $handler() обработает один запрос
+    // вернуть true — продолжать цикл, false — выйти
+});
 ```
 
 Адаптер получает `callable $handler` (обработать один запрос) и возвращает `bool` — продолжать ли цикл. `MAX_REQUESTS`, `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI autowiring — конфигурировать не нужно.

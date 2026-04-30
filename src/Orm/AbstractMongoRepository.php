@@ -41,7 +41,7 @@ abstract class AbstractMongoRepository
         $idMeta = $map->idField();
         $doc    = $this->hydrator->dehydrate($entity);
 
-        if ($doc[$idMeta->field] === '') {
+        if (EntityMetadata::isNewId($doc[$idMeta->field] ?? null)) {
             $doc[$idMeta->field] = $this->ids->generate();
         }
 

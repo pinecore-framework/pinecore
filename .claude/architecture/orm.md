@@ -68,13 +68,26 @@ final class UserRepository extends AbstractMongoRepository
 ## MongoHydrator (`src/Orm/MongoHydrator.php`)
 
 - `hydrate(string $class, array|BSONDocument $doc): object` — BSONDocument/array → typed entity через named constructor args
-- `dehydrate(object $entity): array` — entity → array для MongoDB
-- Рекурсивно обрабатывает `#[Embedded]` и `#[EmbeddedList]`
-- Embedded при dehydrate: сериализует все свойства ReflectionClass (без атрибутов)
+- `dehydrate(object $entity): array` — entity → array для MongoDB; рекурсивно вызывает себя на embedded-объектах
+- `#[Embedded]` и `#[EmbeddedList]` обрабатываются симметрично через `EntityMap` — при сериализации и десериализации используется одна и та же таблица полей, поэтому `#[Field(name: 'x')]` работает в embedded так же, как в top-level entity.
+
+### Поведение `hydrate` при отсутствии поля в документе
+
+1. Если у конструктора есть default — он применяется (поле не передаётся в named-args).
+2. Иначе если свойство nullable — передаётся `null`.
+3. Иначе бросается `\LogicException` с именем поля и класса.
+
+Это позволяет безопасно эволюционировать схему (добавлять поля с дефолтами без миграции БД) и даёт понятную ошибку для обязательных пропавших полей.
 
 ## EntityMap (`src/Orm/EntityMap.php`)
 
 Кеширует метаданные entity (reflection). `EntityMap::of(ClassName::class)` возвращает объект с:
-- `collectionName` — из `#[Collection]`
-- `fields` — список `FieldMetadata` (property, field name, флаги embedded)
-- `idField()` — `FieldMetadata` поля с `#[Id]`
+- `collectionName` — `string` из `#[Collection]` для классов, реализующих `MongoEntity`; `null` для embedded-классов (без `#[Collection]`)
+- `fields` — список `FieldMetadata` (property, field name, флаги embedded, `isNullable`, `hasConstructorDefault`)
+- `idField()` — `FieldMetadata` поля с `#[Id]` (бросает `LogicException`, если нет)
+
+`#[Collection]` обязателен только для классов, реализующих `MongoEntity`. Embedded value-objects используют те же `#[Field]`/`#[Embedded]`/`#[EmbeddedList]` атрибуты, но сами `MongoEntity` не реализуют и `#[Collection]` им не нужен.
+
+## EntityMetadata::isNewId
+
+`AbstractMongoRepository::persist` определяет "новый ли entity" через `EntityMetadata::isNewId($idValue)` — true для `null` и `''`. Это значит, что `#[Id] public readonly ?string $id = null` и `#[Id] public readonly string $id = ''` оба корректно триггерят генерацию нового id через `IdGenerator`.
