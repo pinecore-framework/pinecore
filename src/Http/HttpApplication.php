@@ -7,7 +7,7 @@ use Pronchev\Pinecore\Config;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
-final class HttpApplication
+class HttpApplication
 {
     public function __construct(
         private readonly ContainerInterface $container,
