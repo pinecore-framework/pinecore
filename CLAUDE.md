@@ -20,16 +20,16 @@ PHPUnit 11. Конфиг — `phpunit.xml`. Тесты — `tests/`, фикст�
 
 ## Knowledge base
 
-Full index: [.claude/README.md](.claude/README.md)
+Full index: [docs/README.md](docs/README.md)
 
-- [Architecture & request lifecycle](.claude/architecture/overview.md)
-- [Bootstrap: Kernel, Config, Environment, ContainerFactory](.claude/architecture/bootstrap.md)
-- [HTTP layer: Request, Response, Router, Middleware](.claude/architecture/http.md)
-- [Worker entrypoint & WorkerRunner](.claude/architecture/worker.md)
-- [Auth: JWT, AuthMiddleware](.claude/architecture/auth.md)
-- [Logging](.claude/architecture/logging.md)
-- [ORM: MongoDB, entities, repositories](.claude/architecture/orm.md)
-- [Console](.claude/architecture/console.md)
+- [Architecture & request lifecycle](docs/architecture/overview.md)
+- [Bootstrap: Kernel, Config, Environment, ContainerFactory](docs/architecture/bootstrap.md)
+- [HTTP layer: Request, Response, Router, Middleware](docs/architecture/http.md)
+- [Worker entrypoint & WorkerRunner](docs/architecture/worker.md)
+- [Auth: JWT, AuthMiddleware](docs/architecture/auth.md)
+- [Logging](docs/architecture/logging.md)
+- [ORM: MongoDB, entities, repositories](docs/architecture/orm.md)
+- [Console](docs/architecture/console.md)
 
 ## Code Style
 
