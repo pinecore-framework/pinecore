@@ -19,11 +19,17 @@ final class JwtService
     public function __construct(Config $config)
     {
         $secret = $config->get('jwt.secret');
-        if ($secret === '') {
-            throw new \RuntimeException('JWT_SECRET is not configured');
+        if (!is_string($secret) || strlen($secret) < 32) {
+            throw new \RuntimeException(
+                'jwt.secret must be a string of at least 32 bytes (HS256 requirement)'
+            );
         }
 
-        $this->accessTtl = $config->get('jwt.access_ttl');
+        $accessTtl = $config->get('jwt.access_ttl');
+        if (!is_int($accessTtl) || $accessTtl <= 0) {
+            throw new \RuntimeException('jwt.access_ttl must be a positive integer');
+        }
+        $this->accessTtl = $accessTtl;
 
         $signer = new Sha256();
         $key    = InMemory::plainText($secret);
