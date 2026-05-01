@@ -23,7 +23,7 @@ $runner->run(function ($handler) {
 });
 ```
 
-Адаптер получает `callable $handler` (обработать один запрос) и возвращает `bool` — продолжать ли цикл. `MAX_REQUESTS`, `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI autowiring — конфигурировать не нужно.
+Адаптер получает `callable $handler` (обработать один запрос) и возвращает `bool` — продолжать ли цикл. Лимит итераций (`worker.max_requests` из конфига, 0 = без лимита), `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI с фабрикой в `ContainerFactory`, забирающей лимит из `Config`.
 
 ## WorkerRunner (`src/Http/WorkerRunner.php`)
 
@@ -33,6 +33,7 @@ final class WorkerRunner
     public function __construct(
         private readonly HttpApplication  $app,
         private readonly ExceptionHandler $exceptionHandler,
+        private readonly int              $maxRequests = 0,   // 0 = без лимита
     ) {}
 
     public function run(?callable $loop = null): void
@@ -44,9 +45,8 @@ final class WorkerRunner
         }
 
         $handler = fn () => $this->handle();
-        $maxRequests = (int) ($_SERVER['MAX_REQUESTS'] ?? 0);  // 0 = без лимита
 
-        for ($n = 0; !$maxRequests || $n < $maxRequests; ++$n) {
+        for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
             $keepRunning = $loop($handler);
 
             $this->app->terminate();   // хук: закрытие ресурсов (сейчас пустой)
@@ -94,12 +94,24 @@ $runner->run(function ($handler) use ($runner, $health) {
 });
 ```
 
-## Env-переменные
+## Конфигурация
+
+Воркер читается из `Config` (ключ `worker.max_requests`); приложение само решает, мапить ли его на env-переменную:
+
+```php
+// config/app.php
+return [
+    'worker' => [
+        'max_requests' => (int) env('MAX_REQUESTS', 0),  // 0 = без лимита
+    ],
+];
+```
+
+Прочие env-переменные, на которые ссылается фреймворк:
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
-| `APP_ENV` | `dev` | Среда исполнения |
-| `MAX_REQUESTS` | `0` | Лимит запросов на воркер (0 = без лимита) |
+| `APP_ENV` | `dev` | Среда исполнения (читает `Environment::detect()`) |
 | `LOG_LEVEL` | `debug` | Минимальный уровень логирования |
 | `LOG_FILE` | — | Путь к файлу лога (активирует FileLogger) |
-| `JWT_SECRET` | обязателен | HMAC-ключ для JWT |
+| `JWT_SECRET` | обязателен | HMAC-ключ для JWT (≥ 32 байт) |

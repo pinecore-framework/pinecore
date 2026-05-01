@@ -4,7 +4,9 @@ namespace Pronchev\Pinecore;
 
 use DI\Container;
 use DI\ContainerBuilder;
+use Pronchev\Pinecore\Http\HttpApplication;
 use Pronchev\Pinecore\Http\Router;
+use Pronchev\Pinecore\Http\WorkerRunner;
 use Pronchev\Pinecore\Log\CompositeLogger;
 use Pronchev\Pinecore\Log\FileLogger;
 use Pronchev\Pinecore\Log\StdoutLogger;
@@ -36,6 +38,11 @@ class ContainerFactory
                 }
                 return new CompositeLogger($loggers);
             },
+            WorkerRunner::class => fn($c) => new WorkerRunner(
+                $c->get(HttpApplication::class),
+                $c->get(ExceptionHandler::class),
+                (int) ($config->get('worker.max_requests') ?? 0),
+            ),
         ]);
 
         $routesFile = $basePath . '/config/routes.php';

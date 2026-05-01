@@ -10,19 +10,6 @@ use Pronchev\Pinecore\Http\WorkerRunner;
 
 final class WorkerRunnerTest extends TestCase
 {
-    /** @var array<string, mixed> */
-    private array $serverBackup = [];
-
-    protected function setUp(): void
-    {
-        $this->serverBackup = $_SERVER;
-    }
-
-    protected function tearDown(): void
-    {
-        $_SERVER = $this->serverBackup;
-    }
-
     #[Test]
     public function singleRequestModeInvokesHandleAndTerminateOnce(): void
     {
@@ -37,8 +24,6 @@ final class WorkerRunnerTest extends TestCase
     #[Test]
     public function loopExitsWhenAdapterReturnsFalse(): void
     {
-        unset($_SERVER['MAX_REQUESTS']);
-
         $app = $this->createMock(HttpApplication::class);
         $app->expects(self::once())->method('handleRequest');
         $app->expects(self::once())->method('terminate');
@@ -54,29 +39,51 @@ final class WorkerRunnerTest extends TestCase
     #[Test]
     public function maxRequestsLimitsLoopIterations(): void
     {
-        $_SERVER['MAX_REQUESTS'] = 3;
-
         $app = $this->createMock(HttpApplication::class);
         $app->expects(self::exactly(3))->method('handleRequest');
         $app->expects(self::exactly(3))->method('terminate');
 
-        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
+        $runner = new WorkerRunner(
+            $app,
+            $this->createMock(ExceptionHandler::class),
+            maxRequests: 3,
+        );
 
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations) {
             $iterations++;
             $handler();
-            return true;     // adapter would loop forever, MAX_REQUESTS must stop it
+            return true;     // adapter would loop forever, maxRequests must stop it
         });
 
         self::assertSame(3, $iterations);
     }
 
     #[Test]
+    public function maxRequestsZeroMeansUnlimited(): void
+    {
+        $app = $this->createMock(HttpApplication::class);
+
+        $runner = new WorkerRunner(
+            $app,
+            $this->createMock(ExceptionHandler::class),
+            maxRequests: 0,
+        );
+
+        $iterations = 0;
+        $runner->run(function ($handler) use (&$iterations) {
+            $iterations++;
+            $handler();
+            // Adapter, not maxRequests, decides when to stop.
+            return $iterations < 5;
+        });
+
+        self::assertSame(5, $iterations);
+    }
+
+    #[Test]
     public function requestShutdownExitsLoopEvenIfAdapterWantsToContinue(): void
     {
-        unset($_SERVER['MAX_REQUESTS']);
-
         $app = $this->createMock(HttpApplication::class);
         $app->expects(self::exactly(2))->method('handleRequest');
         $app->expects(self::exactly(2))->method('terminate');

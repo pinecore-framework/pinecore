@@ -21,7 +21,7 @@ HTTP → /worker.php → worker loop
       )
       → HttpApplication::terminate()         // хук для закрытия ресурсов (сейчас пустой)
       → gc_collect_cycles()
-      → если !$keepRunning или достигнут MAX_REQUESTS — выход из цикла
+      → если !$keepRunning или достигнут worker.max_requests — выход из цикла
 ```
 
 ## Карта компонентов

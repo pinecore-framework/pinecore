@@ -11,6 +11,7 @@ final class WorkerRunner
     public function __construct(
         private readonly HttpApplication  $app,
         private readonly ExceptionHandler $exceptionHandler,
+        private readonly int              $maxRequests = 0,
     ) {}
 
     public function run(?callable $loop = null): void
@@ -23,10 +24,9 @@ final class WorkerRunner
 
         $this->installSignalHandlers();
 
-        $handler     = fn () => $this->handle();
-        $maxRequests = (int) ($_SERVER['MAX_REQUESTS'] ?? 0);
+        $handler = fn () => $this->handle();
 
-        for ($n = 0; !$maxRequests || $n < $maxRequests; ++$n) {
+        for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
             $keepRunning = $loop($handler);
 
             $this->app->terminate();
