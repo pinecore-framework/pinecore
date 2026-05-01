@@ -45,14 +45,16 @@ final class ConsoleRouter
     private function compile(ConsoleDefinition $command): array
     {
         $params  = [];
-        // Escape dots, then replace {param} with named capture groups
         $pattern = preg_replace_callback(
-            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
+            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}|([^{]+)/',
             static function (array $m) use (&$params): string {
-                $params[] = $m[1];
-                return '(?P<' . $m[1] . '>[^.:]+)';
+                if (($m[1] ?? '') !== '') {
+                    $params[] = $m[1];
+                    return '(?P<' . $m[1] . '>[^.:]+)';
+                }
+                return preg_quote($m[2], '#');
             },
-            str_replace('.', '\.', $command->signature),
+            $command->signature,
         );
 
         return [
