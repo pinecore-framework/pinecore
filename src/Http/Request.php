@@ -133,6 +133,9 @@ final class Request
         if (isset($server['CONTENT_TYPE'])) {
             $headers['content-type'] = $server['CONTENT_TYPE'];
         }
+        if (isset($server['CONTENT_LENGTH'])) {
+            $headers['content-length'] = (string) $server['CONTENT_LENGTH'];
+        }
         return $headers;
     }
 }

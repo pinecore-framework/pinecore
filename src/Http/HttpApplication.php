@@ -9,13 +9,19 @@ use Psr\Log\LoggerInterface;
 
 class HttpApplication
 {
+    private const DEFAULT_MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+    private readonly int $maxBodyBytes;
+
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly Router             $router,
         private readonly MiddlewarePipeline $pipeline,
         private readonly Config             $config,
         private readonly LoggerInterface    $logger,
-    ) {}
+    ) {
+        $this->maxBodyBytes = (int) ($config->get('http.max_body_bytes') ?? self::DEFAULT_MAX_BODY_BYTES);
+    }
 
     public function handleRequest(array $get, array $post, array $cookie, array $files, array $server): void
     {
@@ -28,10 +34,30 @@ class HttpApplication
             return;
         }
 
-        $rawBody  = (string) file_get_contents('php://input');
+        $declaredLength = (int) ($server['CONTENT_LENGTH'] ?? 0);
+        if ($this->maxBodyBytes > 0 && $declaredLength > $this->maxBodyBytes) {
+            Response::error('Payload Too Large', 413)
+                ->withHeaders($this->corsHeaders())
+                ->emit();
+            return;
+        }
+
+        $rawBody = $this->readRawBody();
+        if ($this->maxBodyBytes > 0 && strlen($rawBody) > $this->maxBodyBytes) {
+            Response::error('Payload Too Large', 413)
+                ->withHeaders($this->corsHeaders())
+                ->emit();
+            return;
+        }
+
         $response = $this->dispatch($get, $post, $cookie, $files, $server, $rawBody);
         $response = $response->withHeaders($this->corsHeaders());
         $response->emit();
+    }
+
+    protected function readRawBody(): string
+    {
+        return (string) file_get_contents('php://input');
     }
 
     private function dispatch(

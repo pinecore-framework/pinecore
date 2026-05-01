@@ -51,7 +51,7 @@ $request->get('auth')               // значение из context, устан
 $request->withContext('key', $value): self   // иммутабельное добавление в context
 ```
 
-**Разбор заголовков:** `HTTP_*` из `$_SERVER` → lowercase-hyphen. `CONTENT_TYPE` тоже нормализуется.
+**Разбор заголовков:** `HTTP_*` из `$_SERVER` → lowercase-hyphen. `CONTENT_TYPE` и `CONTENT_LENGTH` нормализуются дополнительно — у них в `$_SERVER` нет префикса `HTTP_` (CGI, RFC 3875).
 
 ### Парсинг тела по `Content-Type`
 
@@ -104,5 +104,23 @@ return [
         'headers'  => 'Content-Type, Authorization',
         'max_age'  => '86400',
     ],
+];
+```
+
+## Лимит размера тела запроса
+
+`HttpApplication` ограничивает размер тела через ключ `http.max_body_bytes`
+(дефолт — 8 MiB; `0` отключает лимит). Проверка двойная:
+
+1. **До чтения** — если `Content-Length` превышает лимит, тело даже не читается, отдаётся `413 Payload Too Large`.
+2. **После чтения** — если клиент соврал в `Content-Length` или не прислал его, фактический размер всё равно валидируется.
+
+```php
+// config/app.php
+return [
+    'http' => [
+        'max_body_bytes' => 8 * 1024 * 1024,
+    ],
+    // ...
 ];
 ```

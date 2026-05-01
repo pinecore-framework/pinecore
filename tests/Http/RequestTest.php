@@ -183,6 +183,36 @@ final class RequestTest extends TestCase
         self::assertSame('fallback', $request->input('missing', 'fallback'));
     }
 
+    #[Test]
+    public function contentLengthHeaderIsExposed(): void
+    {
+        // CONTENT_LENGTH lives in $_SERVER without the HTTP_ prefix (CGI, RFC 3875).
+        // It must be lifted into headers like CONTENT_TYPE.
+        $request = Request::fromGlobals(
+            get: [],
+            post: [],
+            cookies: [],
+            files: [],
+            server: [
+                'REQUEST_METHOD'  => 'POST',
+                'REQUEST_URI'     => '/',
+                'CONTENT_TYPE'    => 'application/json',
+                'CONTENT_LENGTH'  => '42',
+            ],
+            rawBody: '',
+        );
+
+        self::assertSame('42', $request->headers['content-length']);
+    }
+
+    #[Test]
+    public function contentLengthIsAbsentWhenNotProvided(): void
+    {
+        $request = self::buildRequest(method: 'GET', contentType: null, rawBody: '');
+
+        self::assertArrayNotHasKey('content-length', $request->headers);
+    }
+
     /**
      * @param array<string, mixed> $post
      */
