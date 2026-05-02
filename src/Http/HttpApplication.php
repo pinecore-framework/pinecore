@@ -19,6 +19,7 @@ class HttpApplication
         private readonly MiddlewarePipeline $pipeline,
         private readonly Config             $config,
         private readonly LoggerInterface    $logger,
+        private readonly CorsPolicy         $cors,
     ) {
         $this->maxBodyBytes = (int) ($config->get('http.max_body_bytes') ?? self::DEFAULT_MAX_BODY_BYTES);
     }
@@ -32,18 +33,23 @@ class HttpApplication
         ?string $rawBody = null,
     ): void {
         $method = strtoupper($server['REQUEST_METHOD'] ?? 'GET');
+        $origin = isset($server['HTTP_ORIGIN']) ? (string) $server['HTTP_ORIGIN'] : null;
 
-        // OPTIONS preflight — respond immediately with CORS headers, no routing or body parsing
+        // OPTIONS preflight — respond immediately with CORS headers, no routing or body parsing.
         if ($method === 'OPTIONS') {
-            $this->emitCorsHeaders();
+            foreach ($this->cors->preflightHeaders($origin) as $name => $value) {
+                $this->sendHeader($name . ': ' . $value);
+            }
             http_response_code(204);
             return;
         }
 
+        $corsHeaders = $this->cors->simpleHeaders($origin);
+
         $declaredLength = (int) ($server['CONTENT_LENGTH'] ?? 0);
         if ($this->maxBodyBytes > 0 && $declaredLength > $this->maxBodyBytes) {
             Response::error('Payload Too Large', 413)
-                ->withHeaders($this->corsHeaders())
+                ->withHeaders($corsHeaders)
                 ->emit();
             return;
         }
@@ -51,19 +57,28 @@ class HttpApplication
         $rawBody ??= $this->readRawBody();
         if ($this->maxBodyBytes > 0 && strlen($rawBody) > $this->maxBodyBytes) {
             Response::error('Payload Too Large', 413)
-                ->withHeaders($this->corsHeaders())
+                ->withHeaders($corsHeaders)
                 ->emit();
             return;
         }
 
         $response = $this->dispatch($get, $post, $cookie, $files, $server, $rawBody);
-        $response = $response->withHeaders($this->corsHeaders());
+        $response = $response->withHeaders($corsHeaders);
         $response->emit();
     }
 
     protected function readRawBody(): string
     {
         return (string) file_get_contents('php://input');
+    }
+
+    /**
+     * Hook for emitting raw header lines (preflight path). Tests override
+     * this to capture headers — `header()` is not observable in CLI.
+     */
+    protected function sendHeader(string $line): void
+    {
+        header($line);
     }
 
     private function dispatch(
@@ -107,35 +122,5 @@ class HttpApplication
     public function terminate(): void
     {
         // Завершение работы приложения. Закрытие соединений, ресурсов и.т.п.
-    }
-
-    /** @return array<string, string> */
-    private function corsHeaders(): array
-    {
-        $cors = $this->corsConfig();
-        return [
-            'Access-Control-Allow-Origin'  => $cors['origins'],
-            'Access-Control-Allow-Methods' => $cors['methods'],
-            'Access-Control-Allow-Headers' => $cors['headers'],
-        ];
-    }
-
-    private function emitCorsHeaders(): void
-    {
-        $cors = $this->corsConfig();
-        header('Access-Control-Allow-Origin: '  . $cors['origins']);
-        header('Access-Control-Allow-Methods: ' . $cors['methods']);
-        header('Access-Control-Allow-Headers: ' . $cors['headers']);
-        header('Access-Control-Max-Age: '       . $cors['max_age']);
-    }
-
-    /** @return array<string, mixed> */
-    private function corsConfig(): array
-    {
-        $cors = $this->config->get('app.cors');
-        if (!is_array($cors)) {
-            throw new \RuntimeException('app.cors config is missing');
-        }
-        return $cors;
     }
 }

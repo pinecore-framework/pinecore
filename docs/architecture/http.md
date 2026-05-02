@@ -105,23 +105,45 @@ $app->handleRequest(
 
 `readRawBody()` оставлен `protected` как тестовый хук для подмены SAPI-чтения в анонимных сабклассах.
 
-## HttpApplication — конфигурационные зависимости
+## CORS
 
-`HttpApplication` требует наличия ключа `cors` в `config/app.php`. Конфиг читается при каждом
-запросе (в т.ч. OPTIONS-preflight). Если ключ отсутствует — бросается
-`\RuntimeException('app.cors config is missing')`.
+CORS-политика инкапсулирована в `src/Http/CorsPolicy.php` (DI-резолвится автовайрингом). Ключ `app.cors` в конфиге обязателен — `CorsPolicy` бросает в конструкторе, если секции нет.
 
 ```php
 // config/app.php
 return [
     'cors' => [
-        'origins'  => '*',
-        'methods'  => 'GET, POST, PUT, DELETE, OPTIONS',
-        'headers'  => 'Content-Type, Authorization',
-        'max_age'  => '86400',
+        // Точный allowlist. Допустимо ['*'] — но только если allow_credentials=false.
+        'allowed_origins'   => ['https://app.example.com', 'https://staging.example.com'],
+        'allowed_methods'   => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        'allowed_headers'   => ['Content-Type', 'Authorization'],
+        'allow_credentials' => false,
+        'max_age'           => 600,
     ],
 ];
 ```
+
+**Резолв `Access-Control-Allow-Origin`:**
+
+| Запрос | Конфиг | Что эмитится |
+|---|---|---|
+| Без `Origin` | любой | ничего — same-origin / curl, CORS-заголовки не нужны |
+| `Origin` есть, allowlist `['*']`, credentials=false | wildcard | `Allow-Origin: *`, без `Vary` |
+| `Origin` есть, allowlist `['*']`, credentials=true | wildcard + creds | **ошибка конфига** — `\RuntimeException` в конструкторе. По спеке `*` несовместим с credentials |
+| `Origin` есть, в allowlist | exact match | `Allow-Origin: <тот origin>` + `Vary: Origin` |
+| `Origin` есть, не в allowlist | miss | заголовок не эмитится — браузер интерпретирует как fail |
+
+**`Vary: Origin`** добавляется ко всем ответам кроме чистого `['*']` без credentials — защита от cache-poisoning, когда CDN/прокси может отдать кэшированный ответ другого origin'а.
+
+**`Access-Control-Allow-Credentials: true`** эмитится только если включено в конфиге **и** мы выдали `Allow-Origin`.
+
+**Preflight (OPTIONS)** обрабатывается до роутинга и middleware. Для разрешённого origin'а добавляются `Allow-Methods`, `Allow-Headers`, `Max-Age`. Для запрещённого — только `Vary: Origin` (без CORS-заголовков), 204.
+
+**Simple-ответы** (non-OPTIONS) не содержат `Allow-Methods` / `Allow-Headers` — по спеке они preflight-only.
+
+## HttpApplication — конфигурационные зависимости
+
+`HttpApplication` зависит от `CorsPolicy`, `Router`, `MiddlewarePipeline`, `Config`, `LoggerInterface` — всё через DI-конструктор.
 
 ## Лимит размера тела запроса
 

@@ -5,6 +5,7 @@ namespace Tests\Pronchev\Pinecore\Http;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pronchev\Pinecore\Config;
+use Pronchev\Pinecore\Http\CorsPolicy;
 use Pronchev\Pinecore\Http\HttpApplication;
 use Pronchev\Pinecore\Http\MiddlewarePipeline;
 use Pronchev\Pinecore\Http\Response;
@@ -118,14 +119,57 @@ final class HttpApplicationTest extends TestCase
         self::assertSame('{"ok":true}', $output);
     }
 
-    /**
-     * Anonymous HttpApplication subclass that:
-     *  - returns a fixed body from readRawBody()
-     *  - counts how many times readRawBody() was called
-     *  - uses a one-route Router and a controller returning {"ok":true}
-     */
-    private static function makeApp(string $rawBody, int $maxBodyBytes): object
+    #[Test]
+    public function optionsPreflightFromAllowedOriginEmitsFullCorsHeaders(): void
     {
+        $app = self::makeApp(allowedOrigins: ['https://app.example.com']);
+
+        self::captureOutput(fn() => $app->handleRequest(
+            get: [], post: [], cookie: [], files: [],
+            server: [
+                'REQUEST_METHOD' => 'OPTIONS',
+                'REQUEST_URI'    => '/echo',
+                'HTTP_ORIGIN'    => 'https://app.example.com',
+            ],
+        ));
+
+        self::assertSame(204, http_response_code());
+        self::assertSame('https://app.example.com', $app->capturedHeader('Access-Control-Allow-Origin'));
+        self::assertNotNull($app->capturedHeader('Access-Control-Allow-Methods'));
+        self::assertNotNull($app->capturedHeader('Access-Control-Allow-Headers'));
+        self::assertNotNull($app->capturedHeader('Access-Control-Max-Age'));
+        self::assertSame('Origin', $app->capturedHeader('Vary'));
+    }
+
+    #[Test]
+    public function optionsPreflightFromDisallowedOriginEmitsNoCorsHeaders(): void
+    {
+        $app = self::makeApp(allowedOrigins: ['https://app.example.com']);
+
+        self::captureOutput(fn() => $app->handleRequest(
+            get: [], post: [], cookie: [], files: [],
+            server: [
+                'REQUEST_METHOD' => 'OPTIONS',
+                'REQUEST_URI'    => '/echo',
+                'HTTP_ORIGIN'    => 'https://evil.example.org',
+            ],
+        ));
+
+        self::assertSame(204, http_response_code());
+        self::assertNull($app->capturedHeader('Access-Control-Allow-Origin'));
+        self::assertNull($app->capturedHeader('Access-Control-Allow-Methods'));
+        // Vary: Origin is still emitted to keep caches honest.
+        self::assertSame('Origin', $app->capturedHeader('Vary'));
+    }
+
+    /**
+     * @param list<string>|null $allowedOrigins
+     */
+    private static function makeApp(
+        string $rawBody = '',
+        int $maxBodyBytes = 1024,
+        ?array $allowedOrigins = null,
+    ): object {
         $controller = static fn() => Response::json(['ok' => true]);
 
         $container = new class($controller) implements ContainerInterface {
@@ -139,13 +183,20 @@ final class HttpApplicationTest extends TestCase
         $config   = new Config([
             'http' => ['max_body_bytes' => $maxBodyBytes],
             'app'  => ['cors' => [
-                'origins' => '*', 'methods' => '*', 'headers' => '*', 'max_age' => 600,
+                'allowed_origins'   => $allowedOrigins ?? ['*'],
+                'allowed_methods'   => ['GET', 'POST', 'OPTIONS'],
+                'allowed_headers'   => ['Content-Type', 'Authorization'],
+                'allow_credentials' => false,
+                'max_age'           => 600,
             ]],
         ]);
-        $logger   = new NullLogger();
+        $logger = new NullLogger();
+        $cors   = new CorsPolicy($config);
 
-        return new class($container, $router, $pipeline, $config, $logger, $rawBody) extends HttpApplication {
+        return new class($container, $router, $pipeline, $config, $logger, $cors, $rawBody) extends HttpApplication {
             public int $readCount = 0;
+            /** @var array<string, string> */
+            private array $headers = [];
 
             public function __construct(
                 ContainerInterface $container,
@@ -153,15 +204,27 @@ final class HttpApplicationTest extends TestCase
                 MiddlewarePipeline $pipeline,
                 Config             $config,
                 NullLogger         $logger,
+                CorsPolicy         $cors,
                 private readonly string $rawBody,
             ) {
-                parent::__construct($container, $router, $pipeline, $config, $logger);
+                parent::__construct($container, $router, $pipeline, $config, $logger, $cors);
             }
 
             protected function readRawBody(): string
             {
                 $this->readCount++;
                 return $this->rawBody;
+            }
+
+            protected function sendHeader(string $line): void
+            {
+                [$name, $value] = explode(':', $line, 2);
+                $this->headers[trim($name)] = trim($value);
+            }
+
+            public function capturedHeader(string $name): ?string
+            {
+                return $this->headers[$name] ?? null;
             }
         };
     }

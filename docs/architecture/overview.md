@@ -13,7 +13,8 @@ HTTP → /worker.php → worker loop
         $handler($get, $post, $cookie, $files, $server, $rawBody) →
           HttpApplication::handleRequest($get, $post, $cookie, $files, $server, $rawBody)
           → Request::fromGlobals()           // парсит метод, путь, заголовки, JSON body
-          → OPTIONS? → CORS headers + 204    // preflight, без роутинга
+          → OPTIONS? → CorsPolicy::preflightHeaders($origin) + 204
+                       // origin валидируется по allowlist; default-deny при miss
           → Router::match(method, path)      // regex-компиляция {param} → именованные группы
           → 404 / 405+Allow / RouteMatch
           → MiddlewarePipeline::run()        // каждый middleware меняет Request через withContext()
@@ -38,6 +39,7 @@ HTTP → /worker.php → worker loop
 | `src/Http/Request.php` | `Request` | Иммутабельный; `body()`, `get(key)`, `withContext()` |
 | `src/Http/Response.php` | `Response` | `json()`, `error()`, `withHeader()`, `emit()` |
 | `src/Http/Router.php` | `Router` | Regex-компиляция маршрутов, возвращает `RouteMatch` |
+| `src/Http/CorsPolicy.php` | `CorsPolicy` | Allowlist по Origin, preflight/simple-заголовки, Vary |
 | `src/Http/MiddlewarePipeline.php` | `MiddlewarePipeline` | Последовательно прогоняет middleware через DI |
 | `src/Http/RouteDefinition.php` | `RouteDefinition` | method, path, controller, middleware[] |
 | `src/Http/HttpException.php` | `HttpException` | Выбрасывается из любого места → Response::error |
