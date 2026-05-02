@@ -120,7 +120,7 @@ final class CorsPolicyTest extends TestCase
     public function missingCorsConfigSectionThrows(): void
     {
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('app.cors config is missing');
+        $this->expectExceptionMessage('missing required key "app.cors"');
 
         new CorsPolicy(new Config([]));
     }

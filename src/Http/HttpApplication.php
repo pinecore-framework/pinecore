@@ -21,7 +21,7 @@ class HttpApplication
         private readonly LoggerInterface    $logger,
         private readonly CorsPolicy         $cors,
     ) {
-        $this->maxBodyBytes = (int) ($config->get('http.max_body_bytes') ?? self::DEFAULT_MAX_BODY_BYTES);
+        $this->maxBodyBytes = $config->getInt('http.max_body_bytes', self::DEFAULT_MAX_BODY_BYTES);
     }
 
     public function handleRequest(

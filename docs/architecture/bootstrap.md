@@ -32,11 +32,20 @@ $env->isProd(): bool          // name === 'prod'
 
 **Доступ:**
 ```php
-$config->get('section.key', $default)   // dot-notation, deep lookup
-$config->get('app.cors')                // возвращает array
+$config->get('section.key', $default)   // dot-notation, mixed return — escape hatch
 ```
 
-Merge: рекурсивный для assoc-массивов, replace для списков (array_values === array).
+Для типизированного fail-fast чтения предпочтителен новый API. Если значение есть, но тип не тот — `\RuntimeException` (никаких silent-кастов вроде `(int) '8mb' === 8`):
+
+| Метод | Поведение |
+|---|---|
+| `requireString($key)` / `requireInt` / `requireBool` / `requireArray` | Обязательное значение нужного типа. Отсутствует → `RuntimeException("missing required key …")`. Не того типа → `RuntimeException("key … must be X, got Y")` |
+| `requireStringList($key)` | `list<string>`. Отвергает ассоциативный массив и нестроковые элементы (с указанием индекса) |
+| `getString($key, $default)` / `getInt` / `getBool` / `getArray` | Если ключа нет — дефолт. Если есть, но тип не тот — `RuntimeException` |
+
+Используется во фреймворке: `JwtService` (`requireString`/`requireInt`), `CorsPolicy` (`requireStringList`), `HttpApplication` (`getInt`), `ContainerFactory` (`getString`/`getInt`), `EnsureIndexesCommand` (`getArray`).
+
+Merge при загрузке: рекурсивный для assoc-массивов, replace для списков (`array_values === array`).
 
 ## ContainerFactory (`src/ContainerFactory.php`)
 

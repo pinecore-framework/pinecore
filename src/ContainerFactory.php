@@ -31,15 +31,15 @@ class ContainerFactory
             Config::class      => $config,
             Environment::class => $env,
             LoggerInterface::class => function () use ($config) {
-                $level   = JsonStreamLogger::levelValue((string) $config->get('log.level', 'debug'));
-                $channel = (string) $config->get('log.channel', 'app');
+                $level   = JsonStreamLogger::levelValue($config->getString('log.level', 'debug'));
+                $channel = $config->getString('log.channel', 'app');
 
                 $loggers = [
                     new JsonStreamLogger(self::openStream('php://stdout', 'w'), $level, $channel),
                 ];
 
-                $logFile = $config->get('log.file');
-                if (is_string($logFile) && $logFile !== '') {
+                $logFile = $config->getString('log.file', '');
+                if ($logFile !== '') {
                     $loggers[] = new JsonStreamLogger(self::openStream($logFile, 'a'), $level, $channel);
                 }
 
@@ -48,7 +48,7 @@ class ContainerFactory
             WorkerRunner::class => fn($c) => new WorkerRunner(
                 $c->get(HttpApplication::class),
                 $c->get(ExceptionHandler::class),
-                (int) ($config->get('worker.max_requests') ?? 0),
+                $config->getInt('worker.max_requests', 0),
             ),
         ]);
 

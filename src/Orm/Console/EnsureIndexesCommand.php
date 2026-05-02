@@ -18,7 +18,7 @@ final class EnsureIndexesCommand
 
     public function __invoke(ConsoleInput $input, ConsoleOutput $output): void
     {
-        $entities = (array) ($this->config->get('orm.entities') ?? []);
+        $entities = $this->config->getArray('orm.entities', []);
         if ($entities === []) {
             $output->error('No entities configured (set orm.entities in config)');
             $output->setExitCode(1);

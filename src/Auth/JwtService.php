@@ -18,15 +18,15 @@ final class JwtService
 
     public function __construct(Config $config)
     {
-        $secret = $config->get('jwt.secret');
-        if (!is_string($secret) || strlen($secret) < 32) {
+        $secret = $config->requireString('jwt.secret');
+        if (strlen($secret) < 32) {
             throw new \RuntimeException(
-                'jwt.secret must be a string of at least 32 bytes (HS256 requirement)'
+                'jwt.secret must be at least 32 bytes (HS256 requirement)'
             );
         }
 
-        $accessTtl = $config->get('jwt.access_ttl');
-        if (!is_int($accessTtl) || $accessTtl <= 0) {
+        $accessTtl = $config->requireInt('jwt.access_ttl');
+        if ($accessTtl <= 0) {
             throw new \RuntimeException('jwt.access_ttl must be a positive integer');
         }
         $this->accessTtl = $accessTtl;

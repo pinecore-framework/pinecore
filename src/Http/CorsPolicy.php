@@ -18,16 +18,15 @@ final class CorsPolicy
 
     public function __construct(Config $config)
     {
-        $cors = $config->get('app.cors');
-        if (!is_array($cors)) {
-            throw new \RuntimeException('app.cors config is missing');
-        }
+        // Touch the section first for a single clear "missing app.cors" error
+        // instead of five separate complaints about each sub-key.
+        $config->requireArray('app.cors');
 
-        $this->allowedOrigins   = self::asStringList($cors, 'allowed_origins');
-        $this->allowedMethods   = self::asStringList($cors, 'allowed_methods');
-        $this->allowedHeaders   = self::asStringList($cors, 'allowed_headers');
-        $this->allowCredentials = (bool) ($cors['allow_credentials'] ?? false);
-        $this->maxAge           = (int)  ($cors['max_age'] ?? 600);
+        $this->allowedOrigins   = $config->requireStringList('app.cors.allowed_origins');
+        $this->allowedMethods   = $config->requireStringList('app.cors.allowed_methods');
+        $this->allowedHeaders   = $config->requireStringList('app.cors.allowed_headers');
+        $this->allowCredentials = $config->getBool('app.cors.allow_credentials', false);
+        $this->maxAge           = $config->getInt('app.cors.max_age', 600);
 
         $this->isWildcardOnly = $this->allowedOrigins === ['*'];
 
@@ -103,15 +102,4 @@ final class CorsPolicy
         return in_array($requestOrigin, $this->allowedOrigins, true) ? $requestOrigin : null;
     }
 
-    /**
-     * @return list<string>
-     */
-    private static function asStringList(array $cors, string $key): array
-    {
-        $value = $cors[$key] ?? [];
-        if (!is_array($value)) {
-            throw new \RuntimeException("app.cors.{$key} must be a list of strings");
-        }
-        return array_values(array_map('strval', $value));
-    }
 }
