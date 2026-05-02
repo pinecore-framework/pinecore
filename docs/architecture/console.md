@@ -56,6 +56,27 @@ exit($app->run($argv));
 Команды: `bin/console <signature> [--option=value] [--flag]`
 Help: `bin/console help` или `bin/console help <signature>`
 
+## Регистрация команд
+
+Конвенциональный способ — `config/commands.php` (по аналогии с `config/routes.php`):
+
+```php
+use Pinecore\Pinecore\Console\ConsoleDefinition;
+use Pinecore\Pinecore\Console\OptionDefinition;
+
+return [
+    new ConsoleDefinition('mongo:ensure-indexes', EnsureIndexesCommand::class, 'Ensure MongoDB indexes'),
+    new ConsoleDefinition('users:create {role}', CreateUserCommand::class, 'Create a new user', [
+        new OptionDefinition('email', 'User email', null),
+        new OptionDefinition('dry-run', 'Do not persist', false),
+    ]),
+];
+```
+
+`ContainerFactory` сам соберёт `ConsoleRouter` из этого списка. Если файла нет —
+`ConsoleRouter` резолвится пустым, и `bin/console help` показывает «No commands registered»
+(удобно для скелетона). Переопределить биндинг полностью можно в `config/services.php`.
+
 ## Команды, поставляемые фреймворком
 
 | Сигнатура | Хендлер | Описание |

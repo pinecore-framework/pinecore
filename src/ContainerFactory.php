@@ -4,6 +4,7 @@ namespace Pinecore\Pinecore;
 
 use DI\Container;
 use DI\ContainerBuilder;
+use Pinecore\Pinecore\Console\ConsoleRouter;
 use Pinecore\Pinecore\Http\HttpApplication;
 use Pinecore\Pinecore\Http\Router;
 use Pinecore\Pinecore\Http\WorkerRunner;
@@ -50,6 +51,7 @@ class ContainerFactory
                 $c->get(ExceptionHandler::class),
                 $config->getInt('worker.max_requests', 0),
             ),
+            ConsoleRouter::class => fn() => new ConsoleRouter([]),
         ]);
 
         $routesFile = $basePath . '/config/routes.php';
@@ -57,6 +59,14 @@ class ContainerFactory
             $routes = require $routesFile;
             $builder->addDefinitions([
                 Router::class => fn() => new Router($routes),
+            ]);
+        }
+
+        $commandsFile = $basePath . '/config/commands.php';
+        if (file_exists($commandsFile)) {
+            $commands = require $commandsFile;
+            $builder->addDefinitions([
+                ConsoleRouter::class => fn() => new ConsoleRouter($commands),
             ]);
         }
 

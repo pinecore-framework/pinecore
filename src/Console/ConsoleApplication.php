@@ -68,6 +68,11 @@ final class ConsoleApplication
 
         $commands = $this->router->all();
 
+        if ($commands === []) {
+            echo 'No commands registered.' . PHP_EOL;
+            return;
+        }
+
         echo 'Available commands:' . PHP_EOL . PHP_EOL;
 
         $maxLen = max(array_map(static fn($c) => strlen($c->signature), $commands));

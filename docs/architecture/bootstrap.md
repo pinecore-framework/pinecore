@@ -63,9 +63,13 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
   валит boot.
 - Загружает `$basePath/config/routes.php` (если есть) — файл возвращает `RouteDefinition[]`,
   фреймворк автоматически создаёт `Router` и регистрирует его в контейнере
+- Загружает `$basePath/config/commands.php` (если есть) — файл возвращает `ConsoleDefinition[]`,
+  фреймворк автоматически создаёт `ConsoleRouter` и регистрирует его в контейнере. Если файла
+  нет — `ConsoleRouter` всё равно резолвится с пустым списком, чтобы `bin/console help` работал
+  на голом скелетоне
 - Загружает `$basePath/config/services.php` (если есть) — файл возвращает
-  `callable($builder, $config, $basePath)`; загружается после routes.php и может переопределить
-  любые определения, включая `Router::class`
+  `callable($builder, $config, $basePath)`; загружается после routes.php/commands.php и может
+  переопределить любые определения, включая `Router::class` и `ConsoleRouter::class`
 
 **`config/routes.php`** (конвенция, предпочтительный способ):
 ```php
