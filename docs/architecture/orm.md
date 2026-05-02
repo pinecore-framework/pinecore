@@ -89,6 +89,21 @@ final class UserRepository extends AbstractMongoRepository
 
 `#[Collection]` обязателен только для классов, реализующих `MongoEntity`. Embedded value-objects используют те же `#[Field]`/`#[Embedded]`/`#[EmbeddedList]` атрибуты, но сами `MongoEntity` не реализуют и `#[Collection]` им не нужен.
 
+### Валидация атрибутов
+
+`EntityMap::build` валидирует атрибуты при первом обращении к классу (результат кешируется). `\LogicException` бросается **до** хидрации первого документа, с указанием `Класс::$свойство` для быстрой локализации.
+
+**`#[Embedded]`** требует:
+- свойство типизировано одним именованным классом (опц. nullable: `?Foo`);
+- `mixed`/нетипизированное/примитив (`string`, `int`, ...)/`array`/union/intersection — отвергается;
+- класс из типа существует (`class_exists`).
+
+**`#[EmbeddedList(class: Foo::class)]`** требует:
+- `Foo` существует;
+- свойство типизировано как `array` (опц. `?array`).
+
+**`#[Index]`** требует на том же свойстве `#[Field]` или `#[Id]` — иначе `\LogicException`.
+
 ## Индексы
 
 ### Атрибут `#[Index]`

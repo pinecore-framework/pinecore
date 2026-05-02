@@ -10,8 +10,11 @@ use Pronchev\Pinecore\Orm\Attributes\Field;
 use Pronchev\Pinecore\Orm\Attributes\Id;
 use Pronchev\Pinecore\Orm\Attributes\Index;
 use ReflectionClass;
+use ReflectionIntersectionType;
+use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionProperty;
+use ReflectionUnionType;
 
 final class EntityMap
 {
@@ -49,7 +52,7 @@ final class EntityMap
         $indexes = [];
 
         foreach ($ref->getProperties() as $property) {
-            $fieldMeta = self::buildFieldMetadata($property, $constructorParams);
+            $fieldMeta = self::buildFieldMetadata($property, $constructorParams, $class);
             if ($fieldMeta !== null) {
                 $fields[] = $fieldMeta;
             }
@@ -86,6 +89,7 @@ final class EntityMap
     private static function buildFieldMetadata(
         ReflectionProperty $property,
         array $constructorParams,
+        string $entityClass,
     ): ?FieldMetadata {
         $idAttrs = $property->getAttributes(Id::class);
         $fieldAttrs = $property->getAttributes(Field::class);
@@ -131,14 +135,15 @@ final class EntityMap
         }
 
         if (!empty($embeddedAttrs)) {
+            $embeddedClass = self::resolveEmbeddedClass($property, $entityClass);
             return new FieldMetadata(
                 property: $property,
                 field: $property->getName(),
                 isId: false,
-                type: self::typeName($property),
+                type: $embeddedClass,
                 isEmbedded: true,
                 isEmbeddedList: false,
-                embeddedClass: self::typeName($property),
+                embeddedClass: $embeddedClass,
                 isNullable: $isNullable,
                 hasConstructorDefault: $hasDefault,
             );
@@ -146,6 +151,7 @@ final class EntityMap
 
         /** @var EmbeddedList $embeddedList */
         $embeddedList = $embeddedListAttrs[0]->newInstance();
+        self::validateEmbeddedListProperty($property, $embeddedList->class, $entityClass);
         return new FieldMetadata(
             property: $property,
             field: $property->getName(),
@@ -157,6 +163,66 @@ final class EntityMap
             isNullable: $isNullable,
             hasConstructorDefault: $hasDefault,
         );
+    }
+
+    /**
+     * Validates that the property bearing #[Embedded] is typed with a single
+     * named, existing class (optionally nullable). Returns the FQCN.
+     */
+    private static function resolveEmbeddedClass(ReflectionProperty $property, string $entityClass): string
+    {
+        $type = $property->getType();
+        $where = "{$entityClass}::\${$property->getName()}";
+
+        if ($type === null) {
+            throw new \LogicException("#[Embedded] on {$where} requires a typed property");
+        }
+        if ($type instanceof ReflectionUnionType || $type instanceof ReflectionIntersectionType) {
+            throw new \LogicException(
+                "#[Embedded] on {$where} requires a single named class type, got compound type \"{$type}\""
+            );
+        }
+        if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+            throw new \LogicException(
+                "#[Embedded] on {$where} requires a single named class type, got \"{$type}\""
+            );
+        }
+
+        $class = $type->getName();
+        if (!class_exists($class)) {
+            throw new \LogicException(
+                "#[Embedded] class \"{$class}\" on {$where} does not exist"
+            );
+        }
+        return $class;
+    }
+
+    /**
+     * Validates that the property bearing #[EmbeddedList] is typed as array
+     * and that the configured item class actually exists.
+     */
+    private static function validateEmbeddedListProperty(
+        ReflectionProperty $property,
+        string $itemClass,
+        string $entityClass,
+    ): void {
+        $where = "{$entityClass}::\${$property->getName()}";
+
+        if (!class_exists($itemClass)) {
+            throw new \LogicException(
+                "#[EmbeddedList] class \"{$itemClass}\" on {$where} does not exist"
+            );
+        }
+
+        $type = $property->getType();
+        if ($type === null) {
+            throw new \LogicException("#[EmbeddedList] on {$where} requires array property type");
+        }
+        if (!$type instanceof ReflectionNamedType || $type->getName() !== 'array') {
+            throw new \LogicException(
+                "#[EmbeddedList] on {$where} requires array property type, got \"{$type}\""
+            );
+        }
     }
 
     /** @return array<string, ReflectionParameter> */
