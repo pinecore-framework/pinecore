@@ -2,23 +2,17 @@
 
 namespace Pronchev\Pinecore\Log;
 
-use Pronchev\Pinecore\Config;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 
-final class FileLogger extends AbstractLogger
+final class JsonStreamLogger extends AbstractLogger
 {
-    private readonly int    $minLevel;
-    private readonly string $channel;
-    /** @var resource */
-    private readonly mixed  $handle;
-
-    public function __construct(Config $config)
-    {
-        $this->minLevel = self::levelValue($config->get('log.level', 'debug'));
-        $this->channel  = $config->get('log.channel', 'app');
-        $this->handle   = fopen($config->get('log.file'), 'a');
-    }
+    /** @param resource $stream */
+    public function __construct(
+        private readonly mixed  $stream,
+        private readonly int    $minLevel,
+        private readonly string $channel,
+    ) {}
 
     public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
@@ -37,7 +31,25 @@ final class FileLogger extends AbstractLogger
             $entry['context'] = self::serializeContext($context);
         }
 
-        fwrite($this->handle, json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
+        fwrite(
+            $this->stream,
+            json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL,
+        );
+    }
+
+    public static function levelValue(string $level): int
+    {
+        return match ($level) {
+            LogLevel::DEBUG     => 0,
+            LogLevel::INFO      => 1,
+            LogLevel::NOTICE    => 2,
+            LogLevel::WARNING   => 3,
+            LogLevel::ERROR     => 4,
+            LogLevel::CRITICAL  => 5,
+            LogLevel::ALERT     => 6,
+            LogLevel::EMERGENCY => 7,
+            default             => 0,
+        };
     }
 
     private static function interpolate(string $message, array $context): string
@@ -69,20 +81,5 @@ final class FileLogger extends AbstractLogger
             'line'    => $e->getLine(),
             'trace'   => $e->getTraceAsString(),
         ];
-    }
-
-    private static function levelValue(string $level): int
-    {
-        return match ($level) {
-            LogLevel::DEBUG     => 0,
-            LogLevel::INFO      => 1,
-            LogLevel::NOTICE    => 2,
-            LogLevel::WARNING   => 3,
-            LogLevel::ERROR     => 4,
-            LogLevel::CRITICAL  => 5,
-            LogLevel::ALERT     => 6,
-            LogLevel::EMERGENCY => 7,
-            default             => 0,
-        };
     }
 }

@@ -8,8 +8,7 @@ use Pronchev\Pinecore\Http\HttpApplication;
 use Pronchev\Pinecore\Http\Router;
 use Pronchev\Pinecore\Http\WorkerRunner;
 use Pronchev\Pinecore\Log\CompositeLogger;
-use Pronchev\Pinecore\Log\FileLogger;
-use Pronchev\Pinecore\Log\StdoutLogger;
+use Pronchev\Pinecore\Log\JsonStreamLogger;
 use Psr\Log\LoggerInterface;
 
 class ContainerFactory
@@ -31,12 +30,20 @@ class ContainerFactory
         $builder->addDefinitions([
             Config::class      => $config,
             Environment::class => $env,
-            LoggerInterface::class => function ($c) use ($config) {
-                $loggers = [$c->get(StdoutLogger::class)];
-                if ($config->get('log.file')) {
-                    $loggers[] = $c->get(FileLogger::class);
+            LoggerInterface::class => function () use ($config) {
+                $level   = JsonStreamLogger::levelValue((string) $config->get('log.level', 'debug'));
+                $channel = (string) $config->get('log.channel', 'app');
+
+                $loggers = [
+                    new JsonStreamLogger(self::openStream('php://stdout', 'w'), $level, $channel),
+                ];
+
+                $logFile = $config->get('log.file');
+                if (is_string($logFile) && $logFile !== '') {
+                    $loggers[] = new JsonStreamLogger(self::openStream($logFile, 'a'), $level, $channel);
                 }
-                return new CompositeLogger($loggers);
+
+                return count($loggers) === 1 ? $loggers[0] : new CompositeLogger($loggers);
             },
             WorkerRunner::class => fn($c) => new WorkerRunner(
                 $c->get(HttpApplication::class),
@@ -60,5 +67,15 @@ class ContainerFactory
         }
 
         return $builder->build();
+    }
+
+    /** @return resource */
+    private static function openStream(string $path, string $mode): mixed
+    {
+        $stream = @fopen($path, $mode);
+        if ($stream === false) {
+            throw new \RuntimeException("Failed to open log stream: {$path}");
+        }
+        return $stream;
     }
 }

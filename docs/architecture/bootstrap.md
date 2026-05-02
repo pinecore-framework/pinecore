@@ -43,8 +43,10 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
 - В prod: `$builder->enableCompilation($basePath . '/var/cache/prod/')`
 - Автоматически регистрирует `Config::class`, `Environment::class` и `LoggerInterface::class`
   в контейнере — любой класс может получить их через DI без ручного биндинга в `services.php`
-- `LoggerInterface` по умолчанию резолвится в `CompositeLogger([StdoutLogger])`;
-  если задан `log.file` — добавляется `FileLogger`
+- `LoggerInterface` по умолчанию резолвится в `JsonStreamLogger`, пишущий в `php://stdout`;
+  если задан `log.file` — добавляется второй `JsonStreamLogger` для файла, оба
+  заворачиваются в `CompositeLogger`. Файл открывается на старте — недоступный путь
+  валит boot.
 - Загружает `$basePath/config/routes.php` (если есть) — файл возвращает `RouteDefinition[]`,
   фреймворк автоматически создаёт `Router` и регистрирует его в контейнере
 - Загружает `$basePath/config/services.php` (если есть) — файл возвращает

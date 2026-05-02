@@ -113,5 +113,5 @@ return [
 |---|---|---|
 | `APP_ENV` | `dev` | Среда исполнения (читает `Environment::detect()`) |
 | `LOG_LEVEL` | `debug` | Минимальный уровень логирования |
-| `LOG_FILE` | — | Путь к файлу лога (активирует FileLogger) |
+| `LOG_FILE` | — | Путь к файлу лога (активирует второй JsonStreamLogger) |
 | `JWT_SECRET` | обязателен | HMAC-ключ для JWT (≥ 32 байт) |

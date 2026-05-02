@@ -42,8 +42,7 @@ HTTP → /worker.php → worker loop
 | `src/Http/HttpException.php` | `HttpException` | Выбрасывается из любого места → Response::error |
 | `src/Auth/AuthMiddleware.php` | `AuthMiddleware` | Bearer JWT → AuthContext в request |
 | `src/Auth/JwtService.php` | `JwtService` | HS256, issue/verify, lcobucci/jwt |
-| `src/Log/StdoutLogger.php` | `StdoutLogger` | JSON → stdout, PSR-3 |
-| `src/Log/FileLogger.php` | `FileLogger` | JSON → файл (если LOG_FILE задан) |
+| `src/Log/JsonStreamLogger.php` | `JsonStreamLogger` | JSON в любой `resource` (stdout/файл), PSR-3 |
 | `src/Orm/AbstractMongoRepository.php` | `AbstractMongoRepository` | persist/findById/delete/findOneWhere |
 | `src/Orm/MongoHydrator.php` | `MongoHydrator` | hydrate/dehydrate, поддержка Embedded/EmbeddedList |
 | `src/ExceptionHandler.php` | `ExceptionHandler` | Ловит Throwable вне dispatch (critical лог) |
