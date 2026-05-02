@@ -2,11 +2,16 @@
 
 ## Kernel (`src/Kernel.php`)
 
-Статический класс, хранит единственный инстанс контейнера.
+Тонкий хелпер оркестрации: ENV → Config → контейнер. Без статического состояния — entrypoint захватывает возвращаемый контейнер и из него резолвит первый сервис; дальше всё через DI.
 
 ```php
 Kernel::boot(string $basePath): Container  // ENV → Config → ContainerFactory
-Kernel::container(): Container             // бросает RuntimeException если не вызван boot()
+```
+
+```php
+// worker.php / bin/console
+$container = Kernel::boot(__DIR__);
+$runner    = $container->get(WorkerRunner::class);
 ```
 
 ## Environment (`src/Environment.php`)

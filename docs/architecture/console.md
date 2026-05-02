@@ -48,8 +48,8 @@ final class CreateUserCommand
 
 ```php
 // bin/console
-Kernel::boot(__DIR__ . '/..');
-$app = Kernel::container()->get(ConsoleApplication::class);
+$container = Kernel::boot(__DIR__ . '/..');
+$app       = $container->get(ConsoleApplication::class);
 exit($app->run($argv));
 ```
 

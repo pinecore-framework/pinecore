@@ -7,13 +7,17 @@
 **1. Single-request (без аргументов).** Один запрос и выход — классический SAPI/FPM/CGI. PHP runtime сам перенаполняет `$_GET, $_POST, $_COOKIE, $_FILES, $_SERVER` и `php://input` под каждый запрос, поэтому `WorkerRunner` читает их напрямую.
 
 ```php
-$runner = Kernel::container()->get(WorkerRunner::class);
+$container = Kernel::boot(__DIR__);
+$runner    = $container->get(WorkerRunner::class);
 $runner->run();
 ```
 
 **2. Worker-loop (с адаптером).** Долгоживущий процесс под RoadRunner / FrankenPHP / ReactPHP / Swoole / Amphp. В этих рантаймах суперглобалы и `php://input` фиксируются на старте процесса и **не обновляются между итерациями**, поэтому `WorkerRunner` их в этом режиме не трогает: данные текущего запроса передаёт адаптер.
 
 ```php
+$container = Kernel::boot(__DIR__);
+$runner    = $container->get(WorkerRunner::class);
+
 $runner->run(function ($handler) use ($rrWorker) {
     $req = $rrWorker->waitRequest();        // блокирующее чтение запроса
     if ($req === null) return false;        // воркер просят выйти
