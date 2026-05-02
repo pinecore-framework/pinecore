@@ -1,17 +1,17 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use MongoDB\Model\BSONArray;
 use MongoDB\Model\BSONDocument;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Orm\MongoHydrator;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedAddress;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\OptionalFieldsUser;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\SimpleUser;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\UserWithEmbedded;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\UserWithEmbeddedList;
+use Pinecore\Pinecore\Orm\MongoHydrator;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedAddress;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\OptionalFieldsUser;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\UserWithEmbedded;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\UserWithEmbeddedList;
 
 final class MongoHydratorTest extends TestCase
 {

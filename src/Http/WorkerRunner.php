@@ -1,8 +1,8 @@
 <?php
 
-namespace Pronchev\Pinecore\Http;
+namespace Pinecore\Pinecore\Http;
 
-use Pronchev\Pinecore\ExceptionHandler;
+use Pinecore\Pinecore\ExceptionHandler;
 
 final class WorkerRunner
 {

@@ -1,10 +1,10 @@
 <?php
 
-namespace Pronchev\Pinecore\Orm;
+namespace Pinecore\Pinecore\Orm;
 
 use MongoDB\Collection;
 use MongoDB\Database;
-use Pronchev\Pinecore\Orm\Attributes\ForEntity;
+use Pinecore\Pinecore\Orm\Attributes\ForEntity;
 
 abstract class AbstractMongoRepository
 {

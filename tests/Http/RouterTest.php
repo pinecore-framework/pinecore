@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Http;
+namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Http\RouteDefinition;
-use Pronchev\Pinecore\Http\Router;
+use Pinecore\Pinecore\Http\RouteDefinition;
+use Pinecore\Pinecore\Http\Router;
 
 final class RouterTest extends TestCase
 {

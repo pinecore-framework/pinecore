@@ -1,17 +1,17 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Http;
+namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Config;
-use Pronchev\Pinecore\Http\CorsPolicy;
-use Pronchev\Pinecore\Http\HttpApplication;
-use Pronchev\Pinecore\Http\MiddlewarePipeline;
-use Pronchev\Pinecore\Http\Response;
-use Pronchev\Pinecore\Http\RouteDefinition;
-use Pronchev\Pinecore\Http\Router;
-use Pronchev\Pinecore\Log\NullLogger;
+use Pinecore\Pinecore\Config;
+use Pinecore\Pinecore\Http\CorsPolicy;
+use Pinecore\Pinecore\Http\HttpApplication;
+use Pinecore\Pinecore\Http\MiddlewarePipeline;
+use Pinecore\Pinecore\Http\Response;
+use Pinecore\Pinecore\Http\RouteDefinition;
+use Pinecore\Pinecore\Http\Router;
+use Pinecore\Pinecore\Log\NullLogger;
 use Psr\Container\ContainerInterface;
 
 final class HttpApplicationTest extends TestCase

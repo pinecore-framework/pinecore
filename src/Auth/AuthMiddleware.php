@@ -1,9 +1,9 @@
 <?php
 
-namespace Pronchev\Pinecore\Auth;
+namespace Pinecore\Pinecore\Auth;
 
-use Pronchev\Pinecore\Http\MiddlewareInterface;
-use Pronchev\Pinecore\Http\Request;
+use Pinecore\Pinecore\Http\MiddlewareInterface;
+use Pinecore\Pinecore\Http\Request;
 
 final class AuthMiddleware implements MiddlewareInterface
 {

@@ -1,15 +1,15 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Orm\EntityMap;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedAddress;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EntityMissingCollection;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EntityWithoutId;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\MixedPropsEntity;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\SimpleUser;
+use Pinecore\Pinecore\Orm\EntityMap;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedAddress;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EntityMissingCollection;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EntityWithoutId;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\MixedPropsEntity;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
 
 final class EntityMapTest extends TestCase
 {

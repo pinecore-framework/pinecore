@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Orm;
+namespace Pinecore\Pinecore\Orm;
 
 final class EntityMetadata
 {

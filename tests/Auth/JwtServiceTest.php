@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Auth;
+namespace Tests\Pinecore\Pinecore\Auth;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Auth\AuthException;
-use Pronchev\Pinecore\Auth\JwtService;
-use Pronchev\Pinecore\Config;
+use Pinecore\Pinecore\Auth\AuthException;
+use Pinecore\Pinecore\Auth\JwtService;
+use Pinecore\Pinecore\Config;
 
 final class JwtServiceTest extends TestCase
 {

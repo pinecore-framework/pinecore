@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Model;
+namespace Pinecore\Pinecore\Model;
 
 interface MongoEntity extends Entity
 {

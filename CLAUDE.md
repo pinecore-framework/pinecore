@@ -4,9 +4,9 @@ Guidance for Claude Code when working with this repository.
 
 ## Package
 
-`pronchev/pinecore` — minimal PHP framework for long-running workers.
+`pinecore/pinecore` — minimal PHP framework for long-running workers.
 
-**Namespace:** `Pronchev\Pinecore\` → `src/` (PSR-4)
+**Namespace:** `Pinecore\Pinecore\` → `src/` (PSR-4)
 
 ## Tests
 

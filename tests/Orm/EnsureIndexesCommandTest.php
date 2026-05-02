@@ -1,18 +1,18 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use MongoDB\Collection;
 use MongoDB\Database;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Config;
-use Pronchev\Pinecore\Console\ConsoleInput;
-use Pronchev\Pinecore\Console\ConsoleOutput;
-use Pronchev\Pinecore\Orm\Console\EnsureIndexesCommand;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedAddress;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\IndexedEntity;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\SimpleUser;
+use Pinecore\Pinecore\Config;
+use Pinecore\Pinecore\Console\ConsoleInput;
+use Pinecore\Pinecore\Console\ConsoleOutput;
+use Pinecore\Pinecore\Orm\Console\EnsureIndexesCommand;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedAddress;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\IndexedEntity;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
 
 final class EnsureIndexesCommandTest extends TestCase
 {

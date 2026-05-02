@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Fixtures\Orm;
+namespace Tests\Pinecore\Pinecore\Fixtures\Orm;
 
-use Pronchev\Pinecore\Model\MongoEntity;
-use Pronchev\Pinecore\Orm\Attributes\Collection;
-use Pronchev\Pinecore\Orm\Attributes\Field;
-use Pronchev\Pinecore\Orm\Attributes\Id;
-use Pronchev\Pinecore\Orm\Attributes\Index;
+use Pinecore\Pinecore\Model\MongoEntity;
+use Pinecore\Pinecore\Orm\Attributes\Collection;
+use Pinecore\Pinecore\Orm\Attributes\Field;
+use Pinecore\Pinecore\Orm\Attributes\Id;
+use Pinecore\Pinecore\Orm\Attributes\Index;
 
 #[Collection(name: 'indexed_no_field')]
 final class IndexedEntityNoField implements MongoEntity

@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Console;
+namespace Pinecore\Pinecore\Console;
 
 use Psr\Container\ContainerInterface;
 

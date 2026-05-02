@@ -1,14 +1,14 @@
 <?php
 
-namespace Pronchev\Pinecore;
+namespace Pinecore\Pinecore;
 
 use DI\Container;
 use DI\ContainerBuilder;
-use Pronchev\Pinecore\Http\HttpApplication;
-use Pronchev\Pinecore\Http\Router;
-use Pronchev\Pinecore\Http\WorkerRunner;
-use Pronchev\Pinecore\Log\CompositeLogger;
-use Pronchev\Pinecore\Log\JsonStreamLogger;
+use Pinecore\Pinecore\Http\HttpApplication;
+use Pinecore\Pinecore\Http\Router;
+use Pinecore\Pinecore\Http\WorkerRunner;
+use Pinecore\Pinecore\Log\CompositeLogger;
+use Pinecore\Pinecore\Log\JsonStreamLogger;
 use Psr\Log\LoggerInterface;
 
 class ContainerFactory

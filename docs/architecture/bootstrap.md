@@ -69,7 +69,7 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
 
 **`config/routes.php`** (конвенция, предпочтительный способ):
 ```php
-use Pronchev\Pinecore\Http\RouteDefinition;
+use Pinecore\Pinecore\Http\RouteDefinition;
 
 return [
     new RouteDefinition('GET',  '/users/{id}', GetUserController::class, [AuthMiddleware::class]),

@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Orm\EntityMetadata;
+use Pinecore\Pinecore\Orm\EntityMetadata;
 
 final class EntityMetadataTest extends TestCase
 {

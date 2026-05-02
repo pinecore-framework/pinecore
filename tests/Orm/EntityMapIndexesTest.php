@@ -1,14 +1,14 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Orm\EntityMap;
-use Pronchev\Pinecore\Orm\IndexMetadata;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\IndexedEntity;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\IndexedEntityNoField;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\SimpleUser;
+use Pinecore\Pinecore\Orm\EntityMap;
+use Pinecore\Pinecore\Orm\IndexMetadata;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\IndexedEntity;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\IndexedEntityNoField;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
 
 final class EntityMapIndexesTest extends TestCase
 {

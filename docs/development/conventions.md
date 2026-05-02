@@ -4,13 +4,13 @@
 
 | Компонент | Namespace |
 |-----------|-----------|
-| Core | `Pronchev\Pinecore\` |
-| HTTP | `Pronchev\Pinecore\Http\` |
-| Auth | `Pronchev\Pinecore\Auth\` |
-| ORM | `Pronchev\Pinecore\Orm\` |
-| Log | `Pronchev\Pinecore\Log\` |
-| Console | `Pronchev\Pinecore\Console\` |
-| Model | `Pronchev\Pinecore\Model\` |
+| Core | `Pinecore\Pinecore\` |
+| HTTP | `Pinecore\Pinecore\Http\` |
+| Auth | `Pinecore\Pinecore\Auth\` |
+| ORM | `Pinecore\Pinecore\Orm\` |
+| Log | `Pinecore\Pinecore\Log\` |
+| Console | `Pinecore\Pinecore\Console\` |
+| Model | `Pinecore\Pinecore\Model\` |
 
 PSR-4: файл = имя класса, PascalCase. Атрибуты ORM — PascalCase (`#[Collection]`, `#[Field]`). Интерфейсы — суффикс `Interface`.
 

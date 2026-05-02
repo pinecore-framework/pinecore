@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore;
+namespace Tests\Pinecore\Pinecore;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Config;
+use Pinecore\Pinecore\Config;
 
 final class ConfigTest extends TestCase
 {

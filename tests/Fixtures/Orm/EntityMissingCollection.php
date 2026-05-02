@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Fixtures\Orm;
+namespace Tests\Pinecore\Pinecore\Fixtures\Orm;
 
-use Pronchev\Pinecore\Model\MongoEntity;
-use Pronchev\Pinecore\Orm\Attributes\Field;
-use Pronchev\Pinecore\Orm\Attributes\Id;
+use Pinecore\Pinecore\Model\MongoEntity;
+use Pinecore\Pinecore\Orm\Attributes\Field;
+use Pinecore\Pinecore\Orm\Attributes\Id;
 
 final class EntityMissingCollection implements MongoEntity
 {

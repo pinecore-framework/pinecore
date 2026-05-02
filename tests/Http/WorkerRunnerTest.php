@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Http;
+namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\ExceptionHandler;
-use Pronchev\Pinecore\Http\HttpApplication;
-use Pronchev\Pinecore\Http\WorkerRunner;
+use Pinecore\Pinecore\ExceptionHandler;
+use Pinecore\Pinecore\Http\HttpApplication;
+use Pinecore\Pinecore\Http\WorkerRunner;
 
 final class WorkerRunnerTest extends TestCase
 {

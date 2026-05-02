@@ -60,7 +60,7 @@ Help: `bin/console help` или `bin/console help <signature>`
 
 | Сигнатура | Хендлер | Описание |
 |---|---|---|
-| `mongo:ensure-indexes` | `Pronchev\Pinecore\Orm\Console\EnsureIndexesCommand` | Раскатывает `#[Index]` атрибуты в MongoDB. См. `architecture/orm.md`. |
+| `mongo:ensure-indexes` | `Pinecore\Pinecore\Orm\Console\EnsureIndexesCommand` | Раскатывает `#[Index]` атрибуты в MongoDB. См. `architecture/orm.md`. |
 
 Регистрируются приложением в его console-конфиге наравне со своими командами — фреймворк сам ничего не регистрирует.
 

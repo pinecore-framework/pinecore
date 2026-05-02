@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Console;
+namespace Tests\Pinecore\Pinecore\Console;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Console\ConsoleDefinition;
-use Pronchev\Pinecore\Console\ConsoleRouter;
+use Pinecore\Pinecore\Console\ConsoleDefinition;
+use Pinecore\Pinecore\Console\ConsoleRouter;
 
 final class ConsoleRouterTest extends TestCase
 {

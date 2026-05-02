@@ -1,5 +1,5 @@
 {
-    "name": "pronchev/pinecore",
+    "name": "pinecore/pinecore",
     "description": "Minimal PHP framework for long-running workers",
     "type": "library",
     "license": "MIT",
@@ -15,10 +15,10 @@
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
-        "psr-4": {"Pronchev\\Pinecore\\": "src/"},
+        "psr-4": {"Pinecore\\Pinecore\\": "src/"},
         "files": ["src/helpers.php"]
     },
     "autoload-dev": {
-        "psr-4": {"Tests\\Pronchev\\Pinecore\\": "tests/"}
+        "psr-4": {"Tests\\Pinecore\\Pinecore\\": "tests/"}
     }
 }

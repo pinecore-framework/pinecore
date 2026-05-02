@@ -1,8 +1,8 @@
 <?php
 
-namespace Pronchev\Pinecore\Http;
+namespace Pinecore\Pinecore\Http;
 
-use Pronchev\Pinecore\Config;
+use Pinecore\Pinecore\Config;
 
 final class CorsPolicy
 {

@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Fixtures\Orm;
+namespace Tests\Pinecore\Pinecore\Fixtures\Orm;
 
-use Pronchev\Pinecore\Model\MongoEntity;
-use Pronchev\Pinecore\Orm\Attributes\Collection;
-use Pronchev\Pinecore\Orm\Attributes\Embedded;
-use Pronchev\Pinecore\Orm\Attributes\Field;
-use Pronchev\Pinecore\Orm\Attributes\Id;
+use Pinecore\Pinecore\Model\MongoEntity;
+use Pinecore\Pinecore\Orm\Attributes\Collection;
+use Pinecore\Pinecore\Orm\Attributes\Embedded;
+use Pinecore\Pinecore\Orm\Attributes\Field;
+use Pinecore\Pinecore\Orm\Attributes\Id;
 
 #[Collection(name: 'users_with_optional_address')]
 final class UserWithNullableEmbedded implements MongoEntity

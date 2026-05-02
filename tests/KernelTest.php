@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore;
+namespace Tests\Pinecore\Pinecore;
 
 use DI\Container;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Config;
-use Pronchev\Pinecore\Environment;
-use Pronchev\Pinecore\Kernel;
+use Pinecore\Pinecore\Config;
+use Pinecore\Pinecore\Environment;
+use Pinecore\Pinecore\Kernel;
 use Psr\Log\LoggerInterface;
 
 final class KernelTest extends TestCase

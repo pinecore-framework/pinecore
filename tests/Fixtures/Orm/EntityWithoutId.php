@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Fixtures\Orm;
+namespace Tests\Pinecore\Pinecore\Fixtures\Orm;
 
-use Pronchev\Pinecore\Model\MongoEntity;
-use Pronchev\Pinecore\Orm\Attributes\Collection;
-use Pronchev\Pinecore\Orm\Attributes\Field;
+use Pinecore\Pinecore\Model\MongoEntity;
+use Pinecore\Pinecore\Orm\Attributes\Collection;
+use Pinecore\Pinecore\Orm\Attributes\Field;
 
 #[Collection(name: 'no_id_entities')]
 final class EntityWithoutId implements MongoEntity

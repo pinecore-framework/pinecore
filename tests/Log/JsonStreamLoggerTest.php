@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Log;
+namespace Tests\Pinecore\Pinecore\Log;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Log\JsonStreamLogger;
+use Pinecore\Pinecore\Log\JsonStreamLogger;
 use Psr\Log\LogLevel;
 
 final class JsonStreamLoggerTest extends TestCase

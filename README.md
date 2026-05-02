@@ -5,7 +5,7 @@
 ## Установка
 
 ```bash
-composer require pronchev/pinecore
+composer require pinecore/pinecore
 ```
 
 ## Документация

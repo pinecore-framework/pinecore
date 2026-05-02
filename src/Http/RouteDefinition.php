@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Http;
+namespace Pinecore\Pinecore\Http;
 
 final class RouteDefinition
 {

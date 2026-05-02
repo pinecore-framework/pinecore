@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Auth;
+namespace Pinecore\Pinecore\Auth;
 
 use DateTimeImmutable;
 use Lcobucci\JWT\Configuration;
@@ -8,7 +8,7 @@ use Lcobucci\JWT\Signer\Hmac\Sha256;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
-use Pronchev\Pinecore\Config;
+use Pinecore\Pinecore\Config;
 use Psr\Clock\ClockInterface;
 
 final class JwtService

@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Http;
+namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Http\HttpException;
-use Pronchev\Pinecore\Http\Request;
+use Pinecore\Pinecore\Http\HttpException;
+use Pinecore\Pinecore\Http\Request;
 
 final class RequestTest extends TestCase
 {

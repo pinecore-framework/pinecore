@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore;
+namespace Pinecore\Pinecore;
 
 use Psr\Log\LoggerInterface;
 

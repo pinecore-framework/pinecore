@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Log;
+namespace Pinecore\Pinecore\Log;
 
 use Psr\Log\AbstractLogger;
 

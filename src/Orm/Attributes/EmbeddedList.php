@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Orm\Attributes;
+namespace Pinecore\Pinecore\Orm\Attributes;
 
 use Attribute;
 

@@ -1,13 +1,13 @@
 <?php
 
-namespace Pronchev\Pinecore\Orm\Console;
+namespace Pinecore\Pinecore\Orm\Console;
 
 use MongoDB\Database;
-use Pronchev\Pinecore\Config;
-use Pronchev\Pinecore\Console\ConsoleInput;
-use Pronchev\Pinecore\Console\ConsoleOutput;
-use Pronchev\Pinecore\Orm\EntityMap;
-use Pronchev\Pinecore\Orm\IndexMetadata;
+use Pinecore\Pinecore\Config;
+use Pinecore\Pinecore\Console\ConsoleInput;
+use Pinecore\Pinecore\Console\ConsoleOutput;
+use Pinecore\Pinecore\Orm\EntityMap;
+use Pinecore\Pinecore\Orm\IndexMetadata;
 
 final class EnsureIndexesCommand
 {

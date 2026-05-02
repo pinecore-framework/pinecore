@@ -1,18 +1,18 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Orm;
+namespace Tests\Pinecore\Pinecore\Orm;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Orm\EntityMap;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedAddress;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedListOnPrimitive;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedListWithMissingClass;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedOnPrimitive;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedOnUnion;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\EmbeddedOnUntypedProperty;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\UserWithNullableEmbedded;
-use Tests\Pronchev\Pinecore\Fixtures\Orm\UserWithNullableEmbeddedList;
+use Pinecore\Pinecore\Orm\EntityMap;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedAddress;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedListOnPrimitive;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedListWithMissingClass;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedOnPrimitive;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedOnUnion;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\EmbeddedOnUntypedProperty;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\UserWithNullableEmbedded;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\UserWithNullableEmbeddedList;
 
 final class EntityMapValidationTest extends TestCase
 {
@@ -83,7 +83,7 @@ final class EntityMapValidationTest extends TestCase
         self::assertTrue($addresses->isNullable);
     }
 
-    private static function fieldByName(\Pronchev\Pinecore\Orm\EntityMetadata $meta, string $name): \Pronchev\Pinecore\Orm\FieldMetadata
+    private static function fieldByName(\Pinecore\Pinecore\Orm\EntityMetadata $meta, string $name): \Pinecore\Pinecore\Orm\FieldMetadata
     {
         foreach ($meta->fields as $field) {
             if ($field->property->getName() === $name) {

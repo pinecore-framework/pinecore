@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Pronchev\Pinecore\Http;
+namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Pronchev\Pinecore\Config;
-use Pronchev\Pinecore\Http\CorsPolicy;
+use Pinecore\Pinecore\Config;
+use Pinecore\Pinecore\Http\CorsPolicy;
 
 final class CorsPolicyTest extends TestCase
 {

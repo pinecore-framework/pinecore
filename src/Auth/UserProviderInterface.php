@@ -1,6 +1,6 @@
 <?php
 
-namespace Pronchev\Pinecore\Auth;
+namespace Pinecore\Pinecore\Auth;
 
 interface UserProviderInterface
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace Pronchev\Pinecore\Http;
+namespace Pinecore\Pinecore\Http;
 
-use Pronchev\Pinecore\Auth\AuthException;
-use Pronchev\Pinecore\Config;
+use Pinecore\Pinecore\Auth\AuthException;
+use Pinecore\Pinecore\Config;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 

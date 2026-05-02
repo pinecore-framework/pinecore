@@ -137,7 +137,7 @@ public readonly ?string $referralCode;
 
 ### Команда `mongo:ensure-indexes`
 
-Хендлер: `Pronchev\Pinecore\Orm\Console\EnsureIndexesCommand`. Читает список entity из `config/orm.php` (`orm.entities`), для каждого зовёт `Database::selectCollection(...)->createIndex(keys, options)`. `createIndex` идемпотентна — повторный запуск с тем же spec ничего не меняет.
+Хендлер: `Pinecore\Pinecore\Orm\Console\EnsureIndexesCommand`. Читает список entity из `config/orm.php` (`orm.entities`), для каждого зовёт `Database::selectCollection(...)->createIndex(keys, options)`. `createIndex` идемпотентна — повторный запуск с тем же spec ничего не меняет.
 
 ```php
 // config/orm.php в приложении
