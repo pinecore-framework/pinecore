@@ -31,10 +31,21 @@ final class JsonStreamLogger extends AbstractLogger
             $entry['context'] = self::serializeContext($context);
         }
 
-        fwrite(
-            $this->stream,
-            json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL,
-        );
+        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE;
+
+        try {
+            $line = json_encode($entry, $flags | JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $line = json_encode([
+                'ts'            => $entry['ts'],
+                'level'         => $entry['level'],
+                'channel'       => $entry['channel'],
+                'message'       => $entry['message'],
+                '_logger_error' => 'context not encodable: ' . $e->getMessage(),
+            ], $flags);
+        }
+
+        fwrite($this->stream, $line . PHP_EOL);
     }
 
     public static function levelValue(string $level): int

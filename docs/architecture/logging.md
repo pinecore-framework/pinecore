@@ -21,6 +21,10 @@ JSON-строка на каждое сообщение:
 - `channel` — из `log.channel` в config (дефолт `app`)
 - `context` — сериализуется; `Throwable` → `{class, message, file, line, trace}`
 - PSR-3 интерполяция `{key}` из context работает для строк/scalar
+- Битый UTF-8 в строках заменяется на U+FFFD (`JSON_INVALID_UTF8_SUBSTITUTE`).
+  Если контекст всё равно не кодируется (resource, циклическая ссылка, `NAN`/`INF`), запись пишется
+  без `context`, а в payload добавляется `_logger_error: "context not encodable: <причина>"`.
+  Логгер не выбрасывает исключений наружу — приложение продолжит работу.
 
 ## Конфигурация
 

@@ -97,6 +97,58 @@ final class JsonStreamLoggerTest extends TestCase
         self::assertSame('billing', self::readSingleEntry($stream)['channel']);
     }
 
+    #[Test]
+    public function resourceInContextDoesNotCrashAndProducesFallbackEntry(): void
+    {
+        $logger = self::makeLogger($stream);
+        $resource = fopen('php://memory', 'r');
+
+        $logger->error('db down', ['conn' => $resource]);
+
+        $entry = self::readSingleEntry($stream);
+        self::assertSame('error', $entry['level']);
+        self::assertSame('db down', $entry['message']);
+        self::assertArrayHasKey('_logger_error', $entry);
+        self::assertStringContainsString('context not encodable', $entry['_logger_error']);
+        self::assertArrayNotHasKey('context', $entry);
+
+        fclose($resource);
+    }
+
+    #[Test]
+    public function circularReferenceInContextProducesFallbackEntry(): void
+    {
+        $logger = self::makeLogger($stream);
+        $a = new \stdClass();
+        $b = new \stdClass();
+        $a->b = $b;
+        $b->a = $a;
+
+        $logger->error('cycle', ['node' => $a]);
+
+        $entry = self::readSingleEntry($stream);
+        self::assertSame('cycle', $entry['message']);
+        self::assertArrayHasKey('_logger_error', $entry);
+        self::assertArrayNotHasKey('context', $entry);
+    }
+
+    #[Test]
+    public function invalidUtf8InContextStringIsSubstitutedNotFallback(): void
+    {
+        $logger = self::makeLogger($stream);
+        $brokenUtf8 = "valid \xC3\x28 broken";
+
+        $logger->info('payload', ['raw' => $brokenUtf8]);
+
+        $entry = self::readSingleEntry($stream);
+        self::assertSame('payload', $entry['message']);
+        self::assertArrayHasKey('context', $entry);
+        self::assertArrayNotHasKey('_logger_error', $entry);
+        // U+FFFD substitution kicked in — no JsonException, full entry preserved
+        self::assertStringContainsString('valid', $entry['context']['raw']);
+        self::assertStringContainsString('broken', $entry['context']['raw']);
+    }
+
     /**
      * @param resource|null $stream  out-param: opened php://memory stream
      */
