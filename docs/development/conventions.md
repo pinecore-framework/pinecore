@@ -1,30 +1,6 @@
 # Conventions
 
-## Commit Messages
-
-```
-[type] Краткое описание в imperative form
-```
-
-Примеры:
-- `Add autoload for routes and services`
-- `Fix missing CORS config exception`
-- `Refactor WorkerRunner startup sequence`
-
----
-
-## Branch Naming
-
-| Тип | Паттерн | Пример |
-|-----|---------|--------|
-| Feature | `feature/description` | `feature/jwt-refresh` |
-| Fix | `fix/description` | `fix/cors-header` |
-| Refactor | `refactor/description` | `refactor/kernel-bootstrap` |
-| Knowledge base / tooling | `kebab-case` | `knowledge-base` |
-
----
-
-## PHP Namespaces
+## PHP namespaces
 
 | Компонент | Namespace |
 |-----------|-----------|
@@ -36,21 +12,12 @@
 | Console | `Pronchev\Pinecore\Console\` |
 | Model | `Pronchev\Pinecore\Model\` |
 
----
+PSR-4: файл = имя класса, PascalCase. Атрибуты ORM — PascalCase (`#[Collection]`, `#[Field]`). Интерфейсы — суффикс `Interface`.
 
-## File & Class Naming
+## Code style
 
-- PSR-4: файл = имя класса, PascalCase (`WorkerRunner.php` содержит `class WorkerRunner`)
-- Атрибуты ORM: PascalCase (`#[Collection]`, `#[Field]`)
-- Interfaces: суффикс `Interface` (`MiddlewareInterface`)
+EditorConfig в корне проекта:
 
----
-
-## Когда писать ADR
-
-Создай `decisions/ADR-NNN-title.md` когда:
-- Вводится новый архитектурный паттерн
-- Принято нетривиальное решение (и кто-то может спросить "почему так?")
-- Отвергнута очевидная альтернатива
-
-ADR — только новые файлы, никогда не правь существующие.
+- PHP — UTF-8, LF, 4-space indent, 120-char line limit (PSR-12).
+- JS/TS — 2-space indent, 100-char line limit.
+- YAML / JSON / Docker / шаблоны — 2-space indent.

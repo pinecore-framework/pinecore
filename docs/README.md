@@ -1,54 +1,27 @@
 # Knowledge Base Index
 
-Полный индекс базы знаний проекта Pinecore. Все файлы в этой директории коммитятся в репозиторий.
+База знаний проекта Pinecore.
 
-## Быстрая навигация
+## Архитектура
 
-| Что нужно | Файл |
-|-----------|------|
-| Я только что открыл проект | [`architecture/overview.md`](architecture/overview.md) |
-| Как поднять worker / запустить? | [`development/commands.md`](development/commands.md) |
-| Какой паттерн использовать? | [`development/patterns.md`](development/patterns.md) |
-| Commit/branch/namespace conventions | [`development/conventions.md`](development/conventions.md) |
-| Как отладить локально | [`development/testing.md`](development/testing.md) |
-| Ядро, Config, Environment, ContainerFactory | [`architecture/bootstrap.md`](architecture/bootstrap.md) |
-| HTTP: Request, Response, Router, Middleware | [`architecture/http.md`](architecture/http.md) |
-| Worker и WorkerRunner | [`architecture/worker.md`](architecture/worker.md) |
-| Auth (JWT, AuthMiddleware) | [`architecture/auth.md`](architecture/auth.md) |
+| Тема | Файл |
+|------|------|
+| Обзор и жизненный цикл запроса | [`architecture/overview.md`](architecture/overview.md) |
+| Kernel, Config, Environment, ContainerFactory | [`architecture/bootstrap.md`](architecture/bootstrap.md) |
+| HTTP: Request, Response, Router, Middleware, CORS | [`architecture/http.md`](architecture/http.md) |
+| Worker entrypoint и WorkerRunner | [`architecture/worker.md`](architecture/worker.md) |
+| Auth: JWT, AuthMiddleware | [`architecture/auth.md`](architecture/auth.md) |
 | Логирование | [`architecture/logging.md`](architecture/logging.md) |
 | ORM (MongoDB) | [`architecture/orm.md`](architecture/orm.md) |
 | Console-команды | [`architecture/console.md`](architecture/console.md) |
-| Почему архитектура именно такая | [`decisions/README.md`](decisions/README.md) |
 
-## Структура директории
+## Разработка
 
-```
-docs/
-├── README.md                    # Этот файл — индекс
-├── architecture/                # Стабильные архитектурные docs
-│   ├── overview.md              # Обзор системы и жизненный цикл запроса
-│   ├── bootstrap.md             # Kernel, Config, Environment, ContainerFactory
-│   ├── http.md                  # HTTP слой: Request, Response, Router, Middleware
-│   ├── worker.md                # Worker entrypoint и WorkerRunner
-│   ├── auth.md                  # Auth: JWT, AuthMiddleware
-│   ├── logging.md               # Логирование
-│   ├── orm.md                   # ORM: MongoDB, entities, repositories
-│   └── console.md               # Console-команды
-├── development/                 # Практика разработки
-│   ├── patterns.md              # Переиспользуемые code patterns
-│   ├── conventions.md           # Соглашения: коммиты, ветки, неймспейсы
-│   ├── commands.md              # Команды запуска и утилиты
-│   └── testing.md               # Отладка и тестирование
-└── decisions/                   # Architecture Decision Records (ADR)
-    ├── README.md                # Индекс ADR + как писать
-    └── ADR-NNN-*.md
-```
+| Тема | Файл |
+|------|------|
+| Команды запуска, composer, тесты, docker | [`development/commands.md`](development/commands.md) |
+| Соглашения: namespace, code style | [`development/conventions.md`](development/conventions.md) |
 
-## Правила обновления
+## Architecture Decision Records
 
-**Во время разработки в feature-ветке:**
-- Можешь добавить `decisions/ADR-NNN.md` (новый файл — нет конфликтов)
-- НЕ трогай `architecture/` и `development/` — только в main
-
-**После мержа в main:**
-- При необходимости обновляй `architecture/` и `development/`
+[`decisions/README.md`](decisions/README.md) — индекс ADR и шаблон для новых записей.
