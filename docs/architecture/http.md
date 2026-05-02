@@ -89,6 +89,22 @@ throw new HttpException('Forbidden', 403);
 // → перехватывается в HttpApplication::dispatch() → Response::error(message, code)
 ```
 
+## HttpApplication::handleRequest — источники данных
+
+```php
+$app->handleRequest(
+    array $get, array $post, array $cookie, array $files, array $server,
+    ?string $rawBody = null,
+): void
+```
+
+`$get…$server` всегда передаются вызывающим (адаптером воркер-рантайма или `WorkerRunner` в SAPI-режиме). Тело — два режима:
+
+- `$rawBody = null` (по умолчанию) — `HttpApplication::readRawBody()` читает `php://input`. Это путь для FPM/CGI/Apache mod_php, где PHP runtime сам перенаполняет stream под запрос.
+- `$rawBody = '<строка>'` — используется как есть, `php://input` не трогается. Это путь для воркер-рантаймов (RoadRunner, FrankenPHP в worker-mode и т.п.), где `php://input` не пересоздаётся между итерациями.
+
+`readRawBody()` оставлен `protected` как тестовый хук для подмены SAPI-чтения в анонимных сабклассах.
+
 ## HttpApplication — конфигурационные зависимости
 
 `HttpApplication` требует наличия ключа `cors` в `config/app.php`. Конфиг читается при каждом

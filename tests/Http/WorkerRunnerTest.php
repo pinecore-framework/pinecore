@@ -31,7 +31,7 @@ final class WorkerRunnerTest extends TestCase
         $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
 
         $runner->run(function ($handler) {
-            $handler();
+            $handler([], [], [], [], [], '');
             return false;
         });
     }
@@ -52,7 +52,7 @@ final class WorkerRunnerTest extends TestCase
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations) {
             $iterations++;
-            $handler();
+            $handler([], [], [], [], [], '');
             return true;     // adapter would loop forever, maxRequests must stop it
         });
 
@@ -73,7 +73,7 @@ final class WorkerRunnerTest extends TestCase
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations) {
             $iterations++;
-            $handler();
+            $handler([], [], [], [], [], '');
             // Adapter, not maxRequests, decides when to stop.
             return $iterations < 5;
         });
@@ -93,7 +93,7 @@ final class WorkerRunnerTest extends TestCase
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations, $runner) {
             $iterations++;
-            $handler();
+            $handler([], [], [], [], [], '');
             if ($iterations === 2) {
                 $runner->requestShutdown();   // simulates SIGTERM during 2nd request
             }
@@ -101,5 +101,29 @@ final class WorkerRunnerTest extends TestCase
         });
 
         self::assertSame(2, $iterations);
+    }
+
+    #[Test]
+    public function adapterDataReachesHandleRequestVerbatim(): void
+    {
+        $app = $this->createMock(HttpApplication::class);
+
+        $get    = ['q' => 'search'];
+        $post   = ['name' => 'alice'];
+        $cookie = ['sid' => 'abc'];
+        $files  = ['upload' => ['name' => 'x.txt']];
+        $server = ['REQUEST_METHOD' => 'POST', 'REQUEST_URI' => '/echo'];
+        $body   = '{"k":"v"}';
+
+        $app->expects(self::once())
+            ->method('handleRequest')
+            ->with($get, $post, $cookie, $files, $server, $body);
+
+        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
+
+        $runner->run(function ($handler) use ($get, $post, $cookie, $files, $server, $body) {
+            $handler($get, $post, $cookie, $files, $server, $body);
+            return false;
+        });
     }
 }

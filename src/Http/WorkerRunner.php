@@ -17,14 +17,37 @@ final class WorkerRunner
     public function run(?callable $loop = null): void
     {
         if ($loop === null) {
-            $this->handle();
+            // SAPI/CGI/FPM single-request mode: PHP runtime populates the
+            // superglobals and php://input for us.
+            try {
+                $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
+            } catch (\Throwable $e) {
+                $this->exceptionHandler->handleException($e);
+            }
             $this->app->terminate();
             return;
         }
 
         $this->installSignalHandlers();
 
-        $handler = fn () => $this->handle();
+        // Worker-loop mode: the adapter sources per-iteration request data
+        // from its runtime (RoadRunner, FrankenPHP, ReactPHP, ...) and feeds
+        // it to the handler. WorkerRunner does not touch superglobals here —
+        // they are not repopulated between iterations in worker runtimes.
+        $handler = function (
+            array $get,
+            array $post,
+            array $cookie,
+            array $files,
+            array $server,
+            string $rawBody,
+        ): void {
+            try {
+                $this->app->handleRequest($get, $post, $cookie, $files, $server, $rawBody);
+            } catch (\Throwable $e) {
+                $this->exceptionHandler->handleException($e);
+            }
+        };
 
         for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
             $keepRunning = $loop($handler);
@@ -55,14 +78,5 @@ final class WorkerRunner
         pcntl_async_signals(true);
         pcntl_signal(SIGTERM, fn () => $this->requestShutdown());
         pcntl_signal(SIGINT,  fn () => $this->requestShutdown());
-    }
-
-    private function handle(): void
-    {
-        try {
-            $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
-        } catch (\Throwable $e) {
-            $this->exceptionHandler->handleException($e);
-        }
     }
 }

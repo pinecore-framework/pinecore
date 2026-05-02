@@ -2,28 +2,36 @@
 
 ## Entrypoint (`worker.php` приложения)
 
-Фреймворк не привязан к конкретному рантайму. `WorkerRunner::run()` без аргументов обрабатывает один запрос и завершается (классический SAPI/FPM/CGI). Чтобы крутить worker-петлю, приложение передаёт свой адаптер:
+Фреймворк не привязан к конкретному рантайму. У `WorkerRunner::run()` два режима:
+
+**1. Single-request (без аргументов).** Один запрос и выход — классический SAPI/FPM/CGI. PHP runtime сам перенаполняет `$_GET, $_POST, $_COOKIE, $_FILES, $_SERVER` и `php://input` под каждый запрос, поэтому `WorkerRunner` читает их напрямую.
 
 ```php
-use Pronchev\Pinecore\Kernel;
-use Pronchev\Pinecore\Http\WorkerRunner;
-
-require __DIR__ . '/vendor/autoload.php';
-
-Kernel::boot(__DIR__);
 $runner = Kernel::container()->get(WorkerRunner::class);
-
-// Один запрос:
 $runner->run();
+```
 
-// Или worker-петля — приложение передаёт адаптер своего рантайма:
-$runner->run(function ($handler) {
-    // вызов $handler() обработает один запрос
-    // вернуть true — продолжать цикл, false — выйти
+**2. Worker-loop (с адаптером).** Долгоживущий процесс под RoadRunner / FrankenPHP / ReactPHP / Swoole / Amphp. В этих рантаймах суперглобалы и `php://input` фиксируются на старте процесса и **не обновляются между итерациями**, поэтому `WorkerRunner` их в этом режиме не трогает: данные текущего запроса передаёт адаптер.
+
+```php
+$runner->run(function ($handler) use ($rrWorker) {
+    $req = $rrWorker->waitRequest();        // блокирующее чтение запроса
+    if ($req === null) return false;        // воркер просят выйти
+
+    $handler(
+        $req->getQuery(),                   // $_GET-эквивалент
+        $req->getPost(),                    // $_POST
+        $req->getCookies(),                 // $_COOKIE
+        $req->getUploads(),                 // $_FILES
+        $req->getServer(),                  // $_SERVER (REQUEST_METHOD, REQUEST_URI, заголовки HTTP_*)
+        $req->getBody(),                    // raw body, не php://input
+    );
+
+    return true;                            // продолжать цикл
 });
 ```
 
-Адаптер получает `callable $handler` (обработать один запрос) и возвращает `bool` — продолжать ли цикл. Лимит итераций (`worker.max_requests` из конфига, 0 = без лимита), `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI с фабрикой в `ContainerFactory`, забирающей лимит из `Config`.
+Адаптер получает `callable $handler` с сигнатурой `(array $get, array $post, array $cookie, array $files, array $server, string $rawBody): void` и возвращает `bool` — продолжать ли цикл. Лимит итераций (`worker.max_requests` из конфига, 0 = без лимита), `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI с фабрикой в `ContainerFactory`, забирающей лимит из `Config`.
 
 ## WorkerRunner (`src/Http/WorkerRunner.php`)
 
@@ -39,12 +47,28 @@ final class WorkerRunner
     public function run(?callable $loop = null): void
     {
         if ($loop === null) {
-            $this->handle();
+            // SAPI: PHP runtime наполняет суперглобалы и php://input.
+            try {
+                $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
+            } catch (\Throwable $e) {
+                $this->exceptionHandler->handleException($e);
+            }
             $this->app->terminate();
             return;
         }
 
-        $handler = fn () => $this->handle();
+        $this->installSignalHandlers();
+
+        // Worker-loop: данные запроса приходят от адаптера, не из суперглобалов.
+        $handler = function (
+            array $get, array $post, array $cookie, array $files, array $server, string $rawBody,
+        ): void {
+            try {
+                $this->app->handleRequest($get, $post, $cookie, $files, $server, $rawBody);
+            } catch (\Throwable $e) {
+                $this->exceptionHandler->handleException($e);
+            }
+        };
 
         for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
             $keepRunning = $loop($handler);
@@ -52,16 +76,7 @@ final class WorkerRunner
             $this->app->terminate();   // хук: закрытие ресурсов (сейчас пустой)
             gc_collect_cycles();
 
-            if (!$keepRunning) break;
-        }
-    }
-
-    private function handle(): void
-    {
-        try {
-            $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
-        } catch (\Throwable $e) {
-            $this->exceptionHandler->handleException($e);  // critical лог
+            if (!$keepRunning || $this->shouldShutdown) break;
         }
     }
 }

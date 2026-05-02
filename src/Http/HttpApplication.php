@@ -23,8 +23,14 @@ class HttpApplication
         $this->maxBodyBytes = (int) ($config->get('http.max_body_bytes') ?? self::DEFAULT_MAX_BODY_BYTES);
     }
 
-    public function handleRequest(array $get, array $post, array $cookie, array $files, array $server): void
-    {
+    public function handleRequest(
+        array $get,
+        array $post,
+        array $cookie,
+        array $files,
+        array $server,
+        ?string $rawBody = null,
+    ): void {
         $method = strtoupper($server['REQUEST_METHOD'] ?? 'GET');
 
         // OPTIONS preflight — respond immediately with CORS headers, no routing or body parsing
@@ -42,7 +48,7 @@ class HttpApplication
             return;
         }
 
-        $rawBody = $this->readRawBody();
+        $rawBody ??= $this->readRawBody();
         if ($this->maxBodyBytes > 0 && strlen($rawBody) > $this->maxBodyBytes) {
             Response::error('Payload Too Large', 413)
                 ->withHeaders($this->corsHeaders())

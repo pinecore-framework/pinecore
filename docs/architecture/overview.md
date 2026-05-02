@@ -9,8 +9,9 @@ HTTP → /worker.php → worker loop
       → Config::load($configDir)     // config/*.php + config/env/{env}.php + config/env/local.php
       → ContainerFactory::build()    // PHP-DI, в prod компилируется в var/cache/prod/
     loop (WorkerRunner::run($loop)):
-      $loop(fn() =>                     // адаптер приложения, возвращает keepRunning
-        HttpApplication::handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER)
+      $loop($handler) → keepRunning           // адаптер ходит в свой рантайм за запросом
+        $handler($get, $post, $cookie, $files, $server, $rawBody) →
+          HttpApplication::handleRequest($get, $post, $cookie, $files, $server, $rawBody)
           → Request::fromGlobals()           // парсит метод, путь, заголовки, JSON body
           → OPTIONS? → CORS headers + 204    // preflight, без роутинга
           → Router::match(method, path)      // regex-компиляция {param} → именованные группы

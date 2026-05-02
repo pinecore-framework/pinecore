@@ -79,6 +79,27 @@ final class HttpApplicationTest extends TestCase
     }
 
     #[Test]
+    public function explicitRawBodyArgumentBypassesReadRawBody(): void
+    {
+        // Worker-runtime path: adapter feeds the body in, php://input is not touched.
+        $app = self::makeApp(rawBody: 'should-not-be-read', maxBodyBytes: 1024);
+
+        $output = self::captureOutput(fn() => $app->handleRequest(
+            get: [], post: [], cookie: [], files: [],
+            server: [
+                'REQUEST_METHOD' => 'POST',
+                'REQUEST_URI'    => '/echo',
+                'CONTENT_LENGTH' => '11',
+            ],
+            rawBody: 'from-adapter',
+        ));
+
+        self::assertSame(200, http_response_code());
+        self::assertSame('{"ok":true}', $output);
+        self::assertSame(0, $app->readCount, 'readRawBody() must not be called when rawBody is provided');
+    }
+
+    #[Test]
     public function maxBodyBytesZeroDisablesLimit(): void
     {
         // Even 1 MB body passes when limit is 0.
