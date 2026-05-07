@@ -18,18 +18,15 @@ final class ConsoleApplication
             return 0;
         }
 
-        // Split argv (after script name) into positional command tokens and option tokens.
-        // Positional tokens form the command string matched against command signatures
-        // (e.g. "users:create admin"). Tokens from the first "--" onwards are options.
+        // Classify each token after the script name independently: tokens prefixed with "--"
+        // are options, everything else is positional. Positional tokens (in their original
+        // order) form the command string matched against signatures, so options and
+        // positional args may be freely interleaved on the command line.
         $positional   = [];
         $optionTokens = [];
-        $inOptions    = false;
         for ($i = 1, $n = count($argv); $i < $n; $i++) {
             $tok = $argv[$i];
-            if (!$inOptions && str_starts_with($tok, '--')) {
-                $inOptions = true;
-            }
-            if ($inOptions) {
+            if (str_starts_with($tok, '--')) {
                 $optionTokens[] = $tok;
             } else {
                 $positional[] = $tok;

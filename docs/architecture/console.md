@@ -87,7 +87,11 @@ return [
 
 ## Argv parsing
 
-`ConsoleInput::parse($commandStr, $pathParams, $args, $options)`:
-- `$args` = `array_slice($argv, 2)` (после имени команды)
-- `--name=value` → опция
-- `--name` без `=` → флаг (true)
+Токены argv (после имени скрипта) классифицируются независимо:
+- начинается с `--` → опция (`--name=value` → значение, `--name` → флаг `true`);
+- иначе → позиционный токен.
+
+Позиционные токены в исходном порядке склеиваются в commandStr и матчатся
+сигнатурой команды, поэтому опции и позиционки можно свободно перемешивать:
+`bin/console users:create --dry-run admin` эквивалентно
+`bin/console users:create admin --dry-run`.
