@@ -9,8 +9,12 @@
 | `src/Console/ConsoleDefinition.php` | `ConsoleDefinition` | signature, handler class, description, options[] |
 | `src/Console/OptionDefinition.php` | `OptionDefinition` | name, description, default (false = флаг) |
 | `src/Console/ConsoleInput.php` | `ConsoleInput` | Распарсенные path params + options |
-| `src/Console/ConsoleOutput.php` | `ConsoleOutput` | Вывод, exit code |
+| `src/Console/ConsoleOutput.php` | `ConsoleOutput` | Тонкая обёртка над `League\CLImate` (цвета, прогресс-бары, таблицы), exit code |
 | `src/Console/ConsoleMatch.php` | `ConsoleMatch` | Результат матчинга (аналог RouteMatch) |
+
+Зависимость: [`league/climate`](https://climate.thephpleague.com/) — даёт ANSI-цвета, прогресс-бары и таблицы.
+Сам `ConsoleApplication` тоже принимает `CLImate` (default — `new CLImate()`), чтобы help рисовался цветным
+и чтобы тесты могли подменить writer на `Buffer`.
 
 ## ConsoleDefinition
 
@@ -38,11 +42,38 @@ final class CreateUserCommand
         $dryRun = $input->option('dry-run');      // bool для флагов
         $email  = $input->option('email');         // string|null для опций
 
-        $output->writeln('Done');
+        $output->success("created {$role}");
         $output->setExitCode(0);
     }
 }
 ```
+
+## ConsoleOutput
+
+Семантические методы пишут с готовой раскраской:
+- `success(string)` — зелёная галочка `✓`
+- `info(string)` — green
+- `comment(string)` — yellow (для dry-run/диагностики)
+- `warn(string)` — yellow с `⚠`
+- `error(string)` — light_red, в STDERR
+- `writeln(string)` / `write(string)` — без цвета; внутри строки можно использовать
+  CLImate-теги: `<info>`, `<comment>`, `<error>`, `<bold>`, `<dim>`, `<cyan>` и т. д.
+
+Для дольгих операций — прогресс-бары и таблицы:
+```php
+$bar = $output->progress(count($users));
+foreach ($users as $u) {
+    $bar->advance();
+    // ...
+}
+
+$output->table([
+    ['id' => 1, 'email' => 'a@x'],
+    ['id' => 2, 'email' => 'b@x'],
+]);
+```
+
+Низкоуровневый `CLImate` доступен как `$output->climate` (например, для `animation()` или `confirm()`).
 
 ## Запуск
 
@@ -54,7 +85,10 @@ exit($app->run($argv));
 ```
 
 Команды: `bin/console <signature> [--option=value] [--flag]`
-Help: `bin/console help` или `bin/console help <signature>`
+Help:
+- `bin/console help` — общий хелп с группировкой команд по неймспейсу (префикс до `:`).
+- `bin/console help <command>` — подробный хелп: usage, аргументы, опции с дефолтами.
+- `bin/console help <namespace>` — список команд только из этого неймспейса.
 
 ## Регистрация команд
 

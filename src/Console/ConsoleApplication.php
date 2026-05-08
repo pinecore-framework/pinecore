@@ -2,6 +2,7 @@
 
 namespace Pinecore\Pinecore\Console;
 
+use League\CLImate\CLImate;
 use Psr\Container\ContainerInterface;
 
 final class ConsoleApplication
@@ -9,6 +10,7 @@ final class ConsoleApplication
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly ConsoleRouter      $router,
+        private readonly CLImate            $climate = new CLImate(),
     ) {}
 
     public function run(array $argv): int
@@ -37,7 +39,8 @@ final class ConsoleApplication
         $match = $this->router->match($commandStr);
 
         if (!$match->found) {
-            fwrite(STDERR, "Unknown command: {$commandStr}" . PHP_EOL . PHP_EOL);
+            $this->climate->to('error')->out("<error>Unknown command:</error> {$commandStr}");
+            $this->climate->to('error')->out('');
             $this->printHelp();
             return 1;
         }
@@ -48,7 +51,7 @@ final class ConsoleApplication
             $optionTokens,
             $match->definition->options,
         );
-        $output  = new ConsoleOutput();
+        $output  = new ConsoleOutput($this->climate);
         $handler = $this->container->get($match->definition->handler);
 
         ($handler)($input, $output);
@@ -56,93 +59,228 @@ final class ConsoleApplication
         return $output->getExitCode();
     }
 
-    private function printHelp(?string $signature = null): void
+    private function printHelp(?string $target = null): void
     {
-        if ($signature !== null) {
-            $this->printCommandHelp($signature);
+        if ($target !== null) {
+            $this->printScopedHelp($target);
             return;
         }
+
+        $this->printHeader();
 
         $commands = $this->router->all();
-
         if ($commands === []) {
-            echo 'No commands registered.' . PHP_EOL;
+            $this->climate->out('  <comment>No commands registered.</comment>');
+            $this->climate->out('');
             return;
         }
 
-        echo 'Available commands:' . PHP_EOL . PHP_EOL;
-
-        $maxLen = max(array_map(static fn($c) => strlen($c->signature), $commands));
-
-        foreach ($commands as $cmd) {
-            $opts   = $this->formatOptionsHint($cmd->options);
-            $suffix = $opts !== '' ? "  {$opts}" : '';
-            printf("  %-{$maxLen}s  %s%s%s", $cmd->signature, $cmd->description, $suffix, PHP_EOL);
-        }
-
-        echo PHP_EOL;
-        echo 'Usage: bin/console <command> [options]' . PHP_EOL;
-        echo '       bin/console help <command>' . PHP_EOL;
+        $this->printUsage();
+        $this->printCommandsList($commands);
     }
 
-    private function printCommandHelp(string $signature): void
+    private function printScopedHelp(string $target): void
     {
-        $match = $this->router->match($signature);
+        $exact = null;
 
-        // Try matching the signature pattern itself (without values)
-        $found = null;
+        // 1. exact signature
         foreach ($this->router->all() as $cmd) {
-            if ($cmd->signature === $signature) {
-                $found = $cmd;
+            if ($cmd->signature === $target) {
+                $exact = $cmd;
                 break;
             }
         }
 
-        if ($found === null && $match->found) {
-            $found = $match->definition;
+        // 2. user typed the bare command without supplying path params
+        if ($exact === null) {
+            foreach ($this->router->all() as $cmd) {
+                if (str_starts_with($cmd->signature, $target . ' ')) {
+                    $exact = $cmd;
+                    break;
+                }
+            }
         }
 
-        if ($found === null) {
-            fwrite(STDERR, "Unknown command: {$signature}" . PHP_EOL);
+        // 3. user typed the command with values — let the router resolve it
+        if ($exact === null) {
+            $match = $this->router->match($target);
+            if ($match->found) {
+                $exact = $match->definition;
+            }
+        }
+
+        if ($exact !== null) {
+            $this->printCommandHelp($exact);
             return;
         }
 
-        echo PHP_EOL;
-        echo "  {$found->signature} — {$found->description}" . PHP_EOL;
+        // Maybe it's a namespace prefix (e.g. "mongo")
+        $namespace = $this->stripTrailingColon($target);
+        $matches   = $this->commandsInNamespace($namespace);
 
-        // Show path params extracted from signature
-        preg_match_all('/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/', $found->signature, $m);
-        if ($m[1] !== []) {
-            echo PHP_EOL . '  Path params:' . PHP_EOL;
-            foreach ($m[1] as $param) {
-                printf("    %-16s(part of command)%s", $param, PHP_EOL);
-            }
+        if ($matches !== []) {
+            $this->printHeader();
+            $this->climate->out("  <bold><yellow>COMMANDS</yellow></bold> in <info>{$namespace}</info>");
+            $this->climate->out('');
+            $this->printGroup($matches);
+            return;
         }
 
-        if ($found->options !== []) {
-            echo PHP_EOL . '  Options:' . PHP_EOL;
-            foreach ($found->options as $opt) {
-                $isFlag    = $opt->default === false;
-                $nameStr   = $isFlag ? "--{$opt->name}" : "--{$opt->name}=<...>";
-                $defaultStr = $opt->default === false
-                    ? ''
-                    : ($opt->default === null ? ' (default: none)' : " (default: {$opt->default})");
-                printf("    %-22s%s%s%s", $nameStr, $opt->description, $defaultStr, PHP_EOL);
-            }
-        }
-
-        echo PHP_EOL;
+        $this->climate->to('error')->out("<error>Unknown command or namespace:</error> {$target}");
     }
 
-    /** @param list<OptionDefinition> $options */
-    private function formatOptionsHint(array $options): string
+    private function printHeader(): void
     {
-        $parts = [];
-        foreach ($options as $opt) {
-            $parts[] = $opt->default === false
-                ? "[--{$opt->name}]"
-                : "[--{$opt->name}=<{$opt->name}>]";
+        $this->climate->out('');
+        $this->climate->out('  <bold><cyan>Pinecore Console</cyan></bold>');
+        $this->climate->out('');
+    }
+
+    private function printUsage(): void
+    {
+        $this->climate->out('  <bold><yellow>USAGE</yellow></bold>');
+        $this->climate->out('    bin/console <info><command></info> [<comment>options</comment>]');
+        $this->climate->out('    bin/console help [<info><command></info>|<info><namespace></info>]');
+        $this->climate->out('');
+    }
+
+    /** @param list<ConsoleDefinition> $commands */
+    private function printCommandsList(array $commands): void
+    {
+        $this->climate->out('  <bold><yellow>COMMANDS</yellow></bold>');
+
+        $groups = $this->groupByNamespace($commands);
+        ksort($groups);
+
+        foreach ($groups as $namespace => $group) {
+            $this->climate->out('   <bold><cyan>' . $namespace . '</cyan></bold>');
+            $this->printGroup($group);
         }
-        return implode(' ', $parts);
+    }
+
+    /** @param list<ConsoleDefinition> $group */
+    private function printGroup(array $group): void
+    {
+        $maxLen = 0;
+        foreach ($group as $cmd) {
+            $maxLen = max($maxLen, strlen($cmd->signature));
+        }
+
+        foreach ($group as $cmd) {
+            $pad = str_repeat(' ', $maxLen - strlen($cmd->signature));
+            $this->climate->out("    <info>{$cmd->signature}</info>{$pad}  {$cmd->description}");
+        }
+        $this->climate->out('');
+    }
+
+    private function printCommandHelp(ConsoleDefinition $cmd): void
+    {
+        $this->printHeader();
+
+        $coloredSignature = $this->colorizeSignature($cmd->signature);
+        $this->climate->out("  <bold>{$coloredSignature}</bold>");
+        $this->climate->out("  <whisper>{$cmd->description}</whisper>");
+        $this->climate->out('');
+
+        $this->climate->out('  <bold><yellow>USAGE</yellow></bold>');
+        $this->climate->out('    bin/console ' . $this->buildUsageLine($cmd));
+        $this->climate->out('');
+
+        preg_match_all('/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/', $cmd->signature, $m);
+        $params = $m[1];
+        if ($params !== []) {
+            $this->climate->out('  <bold><yellow>ARGUMENTS</yellow></bold>');
+            $width = max(array_map('strlen', $params));
+            foreach ($params as $param) {
+                $pad = str_repeat(' ', $width - strlen($param));
+                $this->climate->out("    <comment>{$param}</comment>{$pad}  <whisper>part of command</whisper>");
+            }
+            $this->climate->out('');
+        }
+
+        if ($cmd->options !== []) {
+            $this->climate->out('  <bold><yellow>OPTIONS</yellow></bold>');
+            $labels = [];
+            foreach ($cmd->options as $opt) {
+                $labels[$opt->name] = $opt->default === false ? "--{$opt->name}" : "--{$opt->name}=<value>";
+            }
+            $width = max(array_map('strlen', $labels));
+            foreach ($cmd->options as $opt) {
+                $label  = $labels[$opt->name];
+                $pad    = str_repeat(' ', $width - strlen($label));
+                $suffix = $this->formatDefaultSuffix($opt);
+                $this->climate->out("    <info>{$label}</info>{$pad}  {$opt->description}{$suffix}");
+            }
+            $this->climate->out('');
+        }
+    }
+
+    private function buildUsageLine(ConsoleDefinition $cmd): string
+    {
+        $sig = preg_replace_callback(
+            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
+            static fn(array $m): string => "<comment><{$m[1]}></comment>",
+            $cmd->signature,
+        );
+
+        $opts = [];
+        foreach ($cmd->options as $opt) {
+            $opts[] = $opt->default === false
+                ? "[<info>--{$opt->name}</info>]"
+                : "[<info>--{$opt->name}</info>=<comment><value></comment>]";
+        }
+
+        return $opts === [] ? $sig : $sig . ' ' . implode(' ', $opts);
+    }
+
+    private function colorizeSignature(string $signature): string
+    {
+        return preg_replace_callback(
+            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
+            static fn(array $m): string => "<comment>{{$m[1]}}</comment>",
+            $signature,
+        );
+    }
+
+    private function formatDefaultSuffix(OptionDefinition $opt): string
+    {
+        if ($opt->default === false || $opt->default === null) {
+            return '';
+        }
+        return " <whisper>(default: {$opt->default})</whisper>";
+    }
+
+    /**
+     * @param  list<ConsoleDefinition>           $commands
+     * @return array<string, list<ConsoleDefinition>>
+     */
+    private function groupByNamespace(array $commands): array
+    {
+        $groups = [];
+        foreach ($commands as $cmd) {
+            $ns = str_contains($cmd->signature, ':')
+                ? strstr($cmd->signature, ':', true)
+                : '_';
+            $groups[$ns][] = $cmd;
+        }
+        return $groups;
+    }
+
+    /** @return list<ConsoleDefinition> */
+    private function commandsInNamespace(string $namespace): array
+    {
+        $prefix = $namespace . ':';
+        $hits   = [];
+        foreach ($this->router->all() as $cmd) {
+            if (str_starts_with($cmd->signature, $prefix)) {
+                $hits[] = $cmd;
+            }
+        }
+        return $hits;
+    }
+
+    private function stripTrailingColon(string $s): string
+    {
+        return rtrim($s, ':');
     }
 }

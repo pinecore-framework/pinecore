@@ -2,6 +2,8 @@
 
 namespace Tests\Pinecore\Pinecore\Orm;
 
+use League\CLImate\CLImate;
+use League\CLImate\Util\Writer\Buffer;
 use MongoDB\Collection;
 use MongoDB\Database;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,16 +18,6 @@ use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
 
 final class EnsureIndexesCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        ob_start();
-    }
-
-    protected function tearDown(): void
-    {
-        ob_end_clean();
-    }
-
     #[Test]
     public function ensuresEachDeclaredIndex(): void
     {
@@ -36,7 +28,7 @@ final class EnsureIndexesCommandTest extends TestCase
             $db,
         );
 
-        $command(self::input(['dry-run' => false]), new ConsoleOutput());
+        $command(self::input(['dry-run' => false]), self::silentOutput());
 
         $coll = $db->collections['indexed_entities'] ?? null;
         self::assertNotNull($coll);
@@ -61,7 +53,7 @@ final class EnsureIndexesCommandTest extends TestCase
             $db,
         );
 
-        $command(self::input(['dry-run' => false]), new ConsoleOutput());
+        $command(self::input(['dry-run' => false]), self::silentOutput());
 
         // EmbeddedAddress has no #[Collection] → skipped, no selectCollection.
         // SimpleUser has #[Collection] but no #[Index] → no createIndex calls.
@@ -82,7 +74,7 @@ final class EnsureIndexesCommandTest extends TestCase
             $db,
         );
 
-        $command(self::input(['dry-run' => true]), new ConsoleOutput());
+        $command(self::input(['dry-run' => true]), self::silentOutput());
 
         self::assertSame([], $db->collections);
     }
@@ -97,7 +89,7 @@ final class EnsureIndexesCommandTest extends TestCase
             $db,
         );
 
-        $output = new ConsoleOutput();
+        $output = self::silentOutput();
         $command(self::input(['dry-run' => false]), $output);
 
         self::assertSame(1, $output->getExitCode());
@@ -113,6 +105,15 @@ final class EnsureIndexesCommandTest extends TestCase
             arguments: [],
             options: $options,
         );
+    }
+
+    private static function silentOutput(): ConsoleOutput
+    {
+        $climate = new CLImate();
+        $climate->output->add('out',   new Buffer());
+        $climate->output->add('error', new Buffer());
+        $climate->output->defaultTo('out');
+        return new ConsoleOutput($climate);
     }
 }
 

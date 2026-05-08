@@ -38,7 +38,7 @@ final class EnsureIndexesCommand
                 $opts = self::buildOptions($idx);
 
                 if ($dryRun) {
-                    $output->writeln(
+                    $output->comment(
                         "[dry-run] {$map->collectionName}.{$idx->field} "
                         . json_encode(['keys' => $keys, 'options' => $opts])
                     );
@@ -47,7 +47,7 @@ final class EnsureIndexesCommand
 
                 $this->db->selectCollection($map->collectionName)->createIndex($keys, $opts);
                 $label = $idx->name ?? 'auto';
-                $output->writeln("ensured {$map->collectionName}.{$idx->field} ({$label})");
+                $output->success("{$map->collectionName}.{$idx->field} ({$label})");
             }
         }
     }
