@@ -47,6 +47,68 @@ final class ConsoleRouterTest extends TestCase
     }
 
     #[Test]
+    public function argumentValueMayContainDot(): void
+    {
+        $router = new ConsoleRouter([
+            new ConsoleDefinition('runtime:build {key}', 'Handler', 'Build runtime'),
+        ]);
+
+        $match = $router->match('runtime:build php-8.3');
+
+        self::assertTrue($match->found);
+        self::assertSame(['key' => 'php-8.3'], $match->pathParams);
+    }
+
+    #[Test]
+    public function argumentValueMayContainColon(): void
+    {
+        $router = new ConsoleRouter([
+            new ConsoleDefinition('runtime:build {key}', 'Handler', 'Build runtime'),
+        ]);
+
+        $match = $router->match('runtime:build cache:clear');
+
+        self::assertTrue($match->found);
+        self::assertSame(['key' => 'cache:clear'], $match->pathParams);
+    }
+
+    #[Test]
+    public function optionalArgumentIsCapturedWhenPresent(): void
+    {
+        $router = new ConsoleRouter([
+            new ConsoleDefinition('runtime:build {key?}', 'Handler', 'Build runtime'),
+        ]);
+
+        $match = $router->match('runtime:build php-8.3');
+
+        self::assertTrue($match->found);
+        self::assertSame(['key' => 'php-8.3'], $match->pathParams);
+    }
+
+    #[Test]
+    public function optionalArgumentMayBeOmitted(): void
+    {
+        $router = new ConsoleRouter([
+            new ConsoleDefinition('runtime:build {key?}', 'Handler', 'Build runtime'),
+        ]);
+
+        $match = $router->match('runtime:build');
+
+        self::assertTrue($match->found);
+        self::assertSame(['key' => ''], $match->pathParams);
+    }
+
+    #[Test]
+    public function requiredArgumentIsStillRequired(): void
+    {
+        $router = new ConsoleRouter([
+            new ConsoleDefinition('runtime:build {key}', 'Handler', 'Build runtime'),
+        ]);
+
+        self::assertFalse($router->match('runtime:build')->found);
+    }
+
+    #[Test]
     public function unknownCommandReturnsNotFound(): void
     {
         $router = new ConsoleRouter([
