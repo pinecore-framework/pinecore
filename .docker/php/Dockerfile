@@ -1,7 +1,7 @@
 FROM php:8.2-cli-alpine
 
 RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS openssl-dev \
-    && pecl install mongodb \
+    && pecl install mongodb-1.21.5 \
     && docker-php-ext-enable mongodb \
     && apk del .build-deps \
     && rm -rf /tmp/pear
