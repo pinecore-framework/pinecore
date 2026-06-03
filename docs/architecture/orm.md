@@ -57,7 +57,7 @@ final class UserRepository extends AbstractMongoRepository
 
 ## AbstractMongoRepository (`src/Orm/AbstractMongoRepository.php`)
 
-Инжектируется через DI: `Database`, `MongoHydrator`, `IdGenerator`, опц. `WorkerLifecycle`.
+Инжектируется через DI: `Database`, `MongoHydrator`, `IdGeneratorInterface` (дефолт `IdGenerator`), опц. `WorkerLifecycle`.
 
 | Метод | Описание |
 |---|---|
@@ -174,4 +174,22 @@ Embedded-классы (без `#[Collection]`) пропускаются авто
 
 ## EntityMetadata::isNewId
 
-`AbstractMongoRepository::persist` определяет "новый ли entity" через `EntityMetadata::isNewId($idValue)` — true для `null` и `''`. Это значит, что `#[Id] public readonly ?string $id = null` и `#[Id] public readonly string $id = ''` оба корректно триггерят генерацию нового id через `IdGenerator`.
+`AbstractMongoRepository::persist` определяет "новый ли entity" через `EntityMetadata::isNewId($idValue)` — true для `null` и `''`. Это значит, что `#[Id] public readonly ?string $id = null` и `#[Id] public readonly string $id = ''` оба корректно триггерят генерацию нового id через `IdGeneratorInterface`.
+
+## Стратегия генерации ID
+
+Репозиторий (и Mongo, и SQL) инжектит `IdGeneratorInterface { generate(): string }`. `ContainerFactory` биндит дефолт `IdGeneratorInterface::class => fn() => new IdGenerator()`, так что поведение из коробки неизменно. Приложение меняет стратегию одной строкой в `config/services.php`:
+
+```php
+use Pinecore\Pinecore\Orm\IdGeneratorInterface;
+use Pinecore\Pinecore\Orm\UuidV7Generator;
+
+IdGeneratorInterface::class => fn() => new UuidV7Generator(),
+```
+
+| Реализация | Формат |
+|---|---|
+| `IdGenerator` (дефолт) | `base64url(random_bytes(16))` — 22 символа, URL-safe |
+| `UuidV7Generator` | RFC 9562 UUIDv7 — time-ordered, монотонный в пределах процесса, без внешних зависимостей |
+
+`UuidV7Generator` удобен как первичный ключ (лексикографически сортируется хронологически → лучшая index locality). Держите единый инстанс — он хранит счётчик монотонности (DI-бинд это синглтон).

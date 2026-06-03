@@ -13,7 +13,7 @@ abstract class AbstractMongoRepository
     public function __construct(
         private readonly Database $db,
         private readonly MongoHydrator $hydrator,
-        private readonly IdGenerator $ids,
+        private readonly IdGeneratorInterface $ids,
         private readonly ?WorkerLifecycle $lifecycle = null,
     ) {}
 

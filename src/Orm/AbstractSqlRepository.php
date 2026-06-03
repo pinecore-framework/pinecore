@@ -14,7 +14,7 @@ abstract class AbstractSqlRepository
         private readonly PDO $pdo,
         private readonly SqlDialect $dialect,
         private readonly SqlHydrator $hydrator,
-        private readonly IdGenerator $ids,
+        private readonly IdGeneratorInterface $ids,
         private readonly ?WorkerLifecycle $lifecycle = null,
     ) {}
 

@@ -10,6 +10,8 @@ use Pinecore\Pinecore\Http\Router;
 use Pinecore\Pinecore\Http\WorkerRunner;
 use Pinecore\Pinecore\Log\CompositeLogger;
 use Pinecore\Pinecore\Log\JsonStreamLogger;
+use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\Orm\IdGeneratorInterface;
 use Pinecore\Pinecore\Worker\ProcessLoop;
 use Psr\Log\LoggerInterface;
 
@@ -47,6 +49,7 @@ class ContainerFactory
 
                 return count($loggers) === 1 ? $loggers[0] : new CompositeLogger($loggers);
             },
+            IdGeneratorInterface::class => fn() => new IdGenerator(),
             ProcessLoop::class => fn($c) => new ProcessLoop(
                 $c->get(WorkerLifecycle::class),
                 $config->getInt('worker.max_requests', 0),

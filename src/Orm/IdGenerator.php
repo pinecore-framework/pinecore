@@ -2,7 +2,7 @@
 
 namespace Pinecore\Pinecore\Orm;
 
-final class IdGenerator
+final class IdGenerator implements IdGeneratorInterface
 {
     public function generate(): string
     {

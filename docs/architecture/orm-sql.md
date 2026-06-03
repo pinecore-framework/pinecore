@@ -63,7 +63,7 @@ final class DocumentRepository extends AbstractSqlRepository
 
 ## AbstractSqlRepository (`src/Orm/AbstractSqlRepository.php`)
 
-Инжектится через DI: `PDO`, `SqlDialect`, `SqlHydrator`, `IdGenerator`.
+Инжектится через DI: `PDO`, `SqlDialect`, `SqlHydrator`, `IdGeneratorInterface` (дефолт `IdGenerator`; сменная стратегия — [`orm.md`](orm.md#стратегия-генерации-id), напр. `UuidV7Generator` под `uuid`-PK).
 
 | Метод | Описание |
 |---|---|
