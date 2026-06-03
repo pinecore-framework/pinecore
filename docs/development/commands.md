@@ -12,7 +12,7 @@ $runner->run();
 $runner->run(fn ($handler) => /* runtime-specific request loop */);
 ```
 
-Адаптер получает `callable $handler` и возвращает `bool` (продолжать ли цикл). `MAX_REQUESTS`, `terminate()` и `gc_collect_cycles()` `WorkerRunner` делает сам между итерациями.
+Адаптер получает `callable $handler` и возвращает `bool` (продолжать ли цикл). Сам цикл — `max_requests`, `gc_collect_cycles()`, сигналы, graceful shutdown — в `ProcessLoop`; `WorkerRunner` поверх него делает `terminate()` на каждой итерации. Тот же `ProcessLoop` переиспользуют не-HTTP воркеры (очередь, scheduler).
 
 ---
 

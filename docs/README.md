@@ -9,7 +9,7 @@
 | Обзор и жизненный цикл запроса | [`architecture/overview.md`](architecture/overview.md) |
 | Kernel, Config, Environment, ContainerFactory | [`architecture/bootstrap.md`](architecture/bootstrap.md) |
 | HTTP: Request, Response, Router, Middleware, CORS | [`architecture/http.md`](architecture/http.md) |
-| Worker entrypoint и WorkerRunner | [`architecture/worker.md`](architecture/worker.md) |
+| Worker loop: ProcessLoop, WorkerRunner | [`architecture/worker.md`](architecture/worker.md) |
 | Auth: JWT, AuthMiddleware | [`architecture/auth.md`](architecture/auth.md) |
 | Логирование | [`architecture/logging.md`](architecture/logging.md) |
 | ORM (MongoDB) | [`architecture/orm.md`](architecture/orm.md) |

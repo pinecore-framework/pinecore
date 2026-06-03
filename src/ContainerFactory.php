@@ -10,6 +10,7 @@ use Pinecore\Pinecore\Http\Router;
 use Pinecore\Pinecore\Http\WorkerRunner;
 use Pinecore\Pinecore\Log\CompositeLogger;
 use Pinecore\Pinecore\Log\JsonStreamLogger;
+use Pinecore\Pinecore\Worker\ProcessLoop;
 use Psr\Log\LoggerInterface;
 
 class ContainerFactory
@@ -46,11 +47,14 @@ class ContainerFactory
 
                 return count($loggers) === 1 ? $loggers[0] : new CompositeLogger($loggers);
             },
+            ProcessLoop::class => fn($c) => new ProcessLoop(
+                $c->get(WorkerLifecycle::class),
+                $config->getInt('worker.max_requests', 0),
+            ),
             WorkerRunner::class => fn($c) => new WorkerRunner(
                 $c->get(HttpApplication::class),
                 $c->get(ExceptionHandler::class),
-                $config->getInt('worker.max_requests', 0),
-                $c->get(WorkerLifecycle::class),
+                $c->get(ProcessLoop::class),
             ),
             ConsoleRouter::class => fn() => new ConsoleRouter([]),
         ]);

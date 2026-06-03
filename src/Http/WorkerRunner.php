@@ -3,24 +3,24 @@
 namespace Pinecore\Pinecore\Http;
 
 use Pinecore\Pinecore\ExceptionHandler;
-use Pinecore\Pinecore\WorkerLifecycle;
+use Pinecore\Pinecore\Worker\ProcessLoop;
 
+/**
+ * HTTP consumer of ProcessLoop. Adapts the runtime's per-request data to
+ * HttpApplication::handleRequest; the loop skeleton (signals, maxRequests, GC,
+ * graceful shutdown, DB-connection recycle) lives in ProcessLoop.
+ */
 final class WorkerRunner
 {
-    private readonly WorkerLifecycle $lifecycle;
-
     public function __construct(
         private readonly HttpApplication  $app,
         private readonly ExceptionHandler $exceptionHandler,
-        private readonly int              $maxRequests = 0,
-        ?WorkerLifecycle                  $lifecycle = null,
-    ) {
-        $this->lifecycle = $lifecycle ?? new WorkerLifecycle();
-    }
+        private readonly ProcessLoop      $loop,
+    ) {}
 
-    public function run(?callable $loop = null): void
+    public function run(?callable $adapter = null): void
     {
-        if ($loop === null) {
+        if ($adapter === null) {
             // SAPI/CGI/FPM single-request mode: PHP runtime populates the
             // superglobals and php://input for us.
             try {
@@ -32,12 +32,10 @@ final class WorkerRunner
             return;
         }
 
-        $this->installSignalHandlers();
-
-        // Worker-loop mode: the adapter sources per-iteration request data
-        // from its runtime (RoadRunner, FrankenPHP, ReactPHP, ...) and feeds
-        // it to the handler. WorkerRunner does not touch superglobals here —
-        // they are not repopulated between iterations in worker runtimes.
+        // Worker-loop mode: the adapter sources per-iteration request data from
+        // its runtime (RoadRunner, FrankenPHP, ReactPHP, ...) and feeds it to the
+        // handler. Superglobals are not touched — worker runtimes do not
+        // repopulate them between iterations.
         $handler = function (
             array $get,
             array $post,
@@ -53,34 +51,19 @@ final class WorkerRunner
             }
         };
 
-        for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
-            $keepRunning = $loop($handler);
-
+        $this->loop->run(function () use ($adapter, $handler): bool {
+            $keepRunning = $adapter($handler);
             $this->app->terminate();
-            gc_collect_cycles();
-
-            if (!$keepRunning || $this->lifecycle->shouldShutdown()) {
-                break;
-            }
-        }
+            return (bool) $keepRunning;
+        });
     }
 
     /**
      * Programmatically request the worker loop to exit after the current
-     * iteration completes. Also called from SIGTERM/SIGINT handlers.
+     * iteration. Delegates to the shared ProcessLoop / WorkerLifecycle.
      */
     public function requestShutdown(): void
     {
-        $this->lifecycle->requestShutdown();
-    }
-
-    private function installSignalHandlers(): void
-    {
-        if (!function_exists('pcntl_async_signals')) {
-            return;
-        }
-        pcntl_async_signals(true);
-        pcntl_signal(SIGTERM, fn () => $this->requestShutdown());
-        pcntl_signal(SIGINT,  fn () => $this->requestShutdown());
+        $this->loop->requestShutdown();
     }
 }

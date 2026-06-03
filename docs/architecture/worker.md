@@ -35,60 +35,70 @@ $runner->run(function ($handler) use ($rrWorker) {
 });
 ```
 
-Адаптер получает `callable $handler` с сигнатурой `(array $get, array $post, array $cookie, array $files, array $server, string $rawBody): void` и возвращает `bool` — продолжать ли цикл. Лимит итераций (`worker.max_requests` из конфига, 0 = без лимита), `$app->terminate()` и `gc_collect_cycles()` отрабатывает сам `WorkerRunner` между итерациями. `WorkerRunner` резолвится через DI с фабрикой в `ContainerFactory`, забирающей лимит из `Config`.
+Адаптер получает `callable $handler` с сигнатурой `(array $get, array $post, array $cookie, array $files, array $server, string $rawBody): void` и возвращает `bool` — продолжать ли цикл. Сам цикл (лимит итераций, `gc_collect_cycles()`, сигналы, graceful shutdown) живёт в `ProcessLoop`; `WorkerRunner` поверх него вызывает `$app->terminate()` на каждой итерации. `WorkerRunner` и `ProcessLoop` резолвятся через DI в `ContainerFactory`.
 
-## WorkerRunner (`src/Http/WorkerRunner.php`)
+## ProcessLoop (`src/Worker/ProcessLoop.php`)
+
+Скелет долгоживущего воркера, **не привязанный к HTTP**. Владеет всем, что нужно любому типу воркера: pcntl-сигналы → graceful shutdown, лимит `maxRequests`, `gc_collect_cycles()` между итерациями и общий флаг `WorkerLifecycle` (через него же репозитории ресайклят воркер при потере БД-коннекта).
 
 ```php
-final class WorkerRunner
+final class ProcessLoop
 {
     public function __construct(
-        private readonly HttpApplication  $app,
-        private readonly ExceptionHandler $exceptionHandler,
-        private readonly int              $maxRequests = 0,   // 0 = без лимита
+        private readonly WorkerLifecycle $lifecycle,
+        private readonly int $maxRequests = 0,   // 0 = без лимита
     ) {}
 
-    public function run(?callable $loop = null): void
+    /** @param callable():bool $tick единица работы; false — остановить цикл */
+    public function run(callable $tick): void
     {
-        if ($loop === null) {
-            // SAPI: PHP runtime наполняет суперглобалы и php://input.
-            try {
-                $this->app->handleRequest($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
-            } catch (\Throwable $e) {
-                $this->exceptionHandler->handleException($e);
-            }
-            $this->app->terminate();
-            return;
-        }
-
         $this->installSignalHandlers();
 
-        // Worker-loop: данные запроса приходят от адаптера, не из суперглобалов.
-        $handler = function (
-            array $get, array $post, array $cookie, array $files, array $server, string $rawBody,
-        ): void {
-            try {
-                $this->app->handleRequest($get, $post, $cookie, $files, $server, $rawBody);
-            } catch (\Throwable $e) {
-                $this->exceptionHandler->handleException($e);
-            }
-        };
-
         for ($n = 0; !$this->maxRequests || $n < $this->maxRequests; ++$n) {
-            $keepRunning = $loop($handler);
-
-            $this->app->terminate();   // хук: закрытие ресурсов (сейчас пустой)
+            $keepRunning = $tick();
             gc_collect_cycles();
 
-            if (!$keepRunning || $this->lifecycle->shouldShutdown()) break;
+            if ($keepRunning === false || $this->lifecycle->shouldShutdown()) break;
         }
     }
 }
 ```
 
+`$tick` сам отвечает за свои ошибки — неперехваченное исключение выходит из цикла и завершает воркер (супервизор перезапустит; это и есть штатное восстановление, а не баг).
+
+### WorkerRunner — HTTP-потребитель лупа
+
+`WorkerRunner` (`src/Http/WorkerRunner.php`) адаптирует данные рантайма к `HttpApplication::handleRequest` и отдаёт цикл `ProcessLoop`:
+
+```php
+$this->loop->run(function () use ($adapter, $handler): bool {
+    $keepRunning = $adapter($handler);   // адаптер тянет один запрос → $handler
+    $this->app->terminate();             // HTTP-специфичная очистка
+    return (bool) $keepRunning;
+});
+```
+
+Single-request режим (`run()` без аргументов) в `ProcessLoop` не заходит — это чисто HTTP/SAPI-путь.
+
+### Другие типы воркеров
+
+Консьюмер очереди и scheduler-tick садятся на тот же `ProcessLoop` и **бесплатно** получают graceful shutdown и recycle при потере БД — отличается только tick:
+
+```php
+$loop = $container->get(ProcessLoop::class);
+
+$loop->run(function () use ($queue, $handler): bool {
+    $message = $queue->pop();          // блокирующее чтение или null
+    if ($message !== null) {
+        $handler($message);            // обработка; репозитории внутри ресайклят воркер при обрыве БД
+    }
+    return true;                        // продолжать потреблять
+});
+```
+
 ## Graceful shutdown
 
-В worker-loop режиме `WorkerRunner` устанавливает обработчики `SIGTERM` и `SIGINT` (`pcntl_async_signals(true)`). При получении сигнала:
+В worker-loop режиме `ProcessLoop` устанавливает обработчики `SIGTERM` и `SIGINT` (`pcntl_async_signals(true)`). При получении сигнала:
 
 1. Текущий запрос дорабатывает до конца — никаких принудительных прерываний.
 2. После возврата управления из адаптера и вызова `$app->terminate()` цикл выходит, даже если адаптер хотел бы продолжать.
@@ -113,7 +123,7 @@ $runner->run(function ($handler) use ($runner, $health) {
 });
 ```
 
-Флаг остановки вынесен в общий сервис `WorkerLifecycle` (DI-синглтон, без зависимостей): его читает `WorkerRunner` и его же дёргают обработчики сигналов. Тот же синглтон инжектится в репозитории — при оборванном соединении с БД (`PDOException`/`ConnectionException`) они вызывают `requestShutdown()`, и воркер ресайклится с живым коннектом. Детали — [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle) и [`orm.md`](orm.md).
+Флаг остановки вынесен в общий сервис `WorkerLifecycle` (DI-синглтон, без зависимостей): его читает `ProcessLoop` и его же дёргают обработчики сигналов (а `WorkerRunner::requestShutdown()` делегирует туда же). Тот же синглтон инжектится в репозитории — при оборванном соединении с БД (`PDOException`/`ConnectionException`) они вызывают `requestShutdown()`, и воркер ресайклится с живым коннектом. Детали — [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle) и [`orm.md`](orm.md).
 
 ## Конфигурация
 

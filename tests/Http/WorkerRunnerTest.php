@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\ExceptionHandler;
 use Pinecore\Pinecore\Http\HttpApplication;
 use Pinecore\Pinecore\Http\WorkerRunner;
+use Pinecore\Pinecore\Worker\ProcessLoop;
+use Pinecore\Pinecore\WorkerLifecycle;
 
 final class WorkerRunnerTest extends TestCase
 {
@@ -17,8 +19,7 @@ final class WorkerRunnerTest extends TestCase
         $app->expects(self::once())->method('handleRequest');
         $app->expects(self::once())->method('terminate');
 
-        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
-        $runner->run();
+        $this->runner($app)->run();
     }
 
     #[Test]
@@ -28,9 +29,7 @@ final class WorkerRunnerTest extends TestCase
         $app->expects(self::once())->method('handleRequest');
         $app->expects(self::once())->method('terminate');
 
-        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
-
-        $runner->run(function ($handler) {
+        $this->runner($app)->run(function ($handler) {
             $handler([], [], [], [], [], '');
             return false;
         });
@@ -43,11 +42,7 @@ final class WorkerRunnerTest extends TestCase
         $app->expects(self::exactly(3))->method('handleRequest');
         $app->expects(self::exactly(3))->method('terminate');
 
-        $runner = new WorkerRunner(
-            $app,
-            $this->createMock(ExceptionHandler::class),
-            maxRequests: 3,
-        );
+        $runner = $this->runner($app, maxRequests: 3);
 
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations) {
@@ -64,11 +59,7 @@ final class WorkerRunnerTest extends TestCase
     {
         $app = $this->createMock(HttpApplication::class);
 
-        $runner = new WorkerRunner(
-            $app,
-            $this->createMock(ExceptionHandler::class),
-            maxRequests: 0,
-        );
+        $runner = $this->runner($app, maxRequests: 0);
 
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations) {
@@ -88,7 +79,7 @@ final class WorkerRunnerTest extends TestCase
         $app->expects(self::exactly(2))->method('handleRequest');
         $app->expects(self::exactly(2))->method('terminate');
 
-        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
+        $runner = $this->runner($app);
 
         $iterations = 0;
         $runner->run(function ($handler) use (&$iterations, $runner) {
@@ -119,11 +110,20 @@ final class WorkerRunnerTest extends TestCase
             ->method('handleRequest')
             ->with($get, $post, $cookie, $files, $server, $body);
 
-        $runner = new WorkerRunner($app, $this->createMock(ExceptionHandler::class));
+        $runner = $this->runner($app);
 
         $runner->run(function ($handler) use ($get, $post, $cookie, $files, $server, $body) {
             $handler($get, $post, $cookie, $files, $server, $body);
             return false;
         });
+    }
+
+    private function runner(HttpApplication $app, int $maxRequests = 0): WorkerRunner
+    {
+        return new WorkerRunner(
+            $app,
+            $this->createMock(ExceptionHandler::class),
+            new ProcessLoop(new WorkerLifecycle(), $maxRequests),
+        );
     }
 }

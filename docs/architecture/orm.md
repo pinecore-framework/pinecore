@@ -68,7 +68,7 @@ final class UserRepository extends AbstractMongoRepository
 
 ### Оборванное соединение
 
-Операции драйвера обёрнуты в guard: при `MongoDB\Driver\Exception\ConnectionException` репозиторий помечает воркер на завершение через `WorkerLifecycle::requestShutdown()` и пробрасывает исключение. После итерации `WorkerRunner` ресайклит воркер — рантайм поднимает новый с живым соединением. Симметрично SQL-ветке (см. [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle)).
+Операции драйвера обёрнуты в guard: при `MongoDB\Driver\Exception\ConnectionException` репозиторий помечает воркер на завершение через `WorkerLifecycle::requestShutdown()` и пробрасывает исключение. После итерации `ProcessLoop` выходит из цикла — рантайм поднимает новый воркер с живым соединением. Симметрично SQL-ветке (см. [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle)).
 
 ## MongoHydrator (`src/Orm/MongoHydrator.php`)
 

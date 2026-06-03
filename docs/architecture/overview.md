@@ -8,7 +8,7 @@ HTTP → /worker.php → worker loop
       → Environment::detect()        // читает APP_ENV, дефолт 'dev'
       → Config::load($configDir)     // config/*.php + config/env/{env}.php + config/env/local.php
       → ContainerFactory::build()    // PHP-DI, в prod компилируется в var/cache/prod/
-    loop (WorkerRunner::run($loop)):
+    loop (WorkerRunner::run($loop) поверх ProcessLoop):
       $loop($handler) → keepRunning           // адаптер ходит в свой рантайм за запросом
         $handler($get, $post, $cookie, $files, $server, $rawBody) →
           HttpApplication::handleRequest($get, $post, $cookie, $files, $server, $rawBody)
@@ -21,9 +21,9 @@ HTTP → /worker.php → worker loop
           → $controller($request): Response  // DI-resolved invokable
           → $response->withHeaders(corsHeaders())->emit()
       )
-      → HttpApplication::terminate()         // хук для закрытия ресурсов (сейчас пустой)
-      → gc_collect_cycles()
-      → если !$keepRunning или достигнут worker.max_requests — выход из цикла
+      → HttpApplication::terminate()         // WorkerRunner: хук закрытия ресурсов (сейчас пустой)
+      → gc_collect_cycles()                  // ProcessLoop
+      → если !$keepRunning, shutdown-флаг или worker.max_requests — выход (ProcessLoop)
 ```
 
 ## Карта компонентов
@@ -34,7 +34,9 @@ HTTP → /worker.php → worker loop
 | `src/Environment.php` | `Environment` | Читает `APP_ENV`, метод `isProd()` |
 | `src/Config.php` | `Config` | Загружает `config/*.php`, deep-merge с env-оверрайдами; `get('a.b.c')` |
 | `src/ContainerFactory.php` | `ContainerFactory` | Строит PHP-DI контейнер; в prod включает compilation |
-| `src/Http/WorkerRunner.php` | `WorkerRunner` | Worker-цикл, MAX_REQUESTS, gc |
+| `src/Worker/ProcessLoop.php` | `ProcessLoop` | Runtime-нейтральный цикл: сигналы, max_requests, gc, shutdown-флаг |
+| `src/WorkerLifecycle.php` | `WorkerLifecycle` | Общий флаг shutdown (сигналы + recycle при потере БД) |
+| `src/Http/WorkerRunner.php` | `WorkerRunner` | HTTP-потребитель ProcessLoop: адаптер запроса + terminate |
 | `src/Http/HttpApplication.php` | `HttpApplication` | CORS, роутинг, dispatch, обработка исключений |
 | `src/Http/Request.php` | `Request` | Иммутабельный; `body()`, `get(key)`, `withContext()` |
 | `src/Http/Response.php` | `Response` | `json()`, `error()`, `withHeader()`, `emit()` |

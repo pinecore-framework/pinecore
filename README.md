@@ -124,7 +124,7 @@ $runner->run(function ($handler) use ($psr7Worker) {
 });
 ```
 
-Лимит итераций (`worker.max_requests`, 0 = без лимита), `gc_collect_cycles()` и `terminate()` между запросами, graceful shutdown по сигналам и `requestShutdown()` — на стороне `WorkerRunner`. → [docs/architecture/worker.md](docs/architecture/worker.md)
+Скелет цикла — лимит итераций (`worker.max_requests`, 0 = без лимита), `gc_collect_cycles()`, graceful shutdown по сигналам и `requestShutdown()` — в runtime-нейтральном `ProcessLoop`; `WorkerRunner` — его HTTP-потребитель (добавляет `terminate()`). На том же `ProcessLoop` едут не-HTTP воркеры (очередь, scheduler). → [docs/architecture/worker.md](docs/architecture/worker.md)
 
 ## ORM (MongoDB)
 
