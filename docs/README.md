@@ -13,6 +13,7 @@
 | Auth: JWT, AuthMiddleware | [`architecture/auth.md`](architecture/auth.md) |
 | Логирование | [`architecture/logging.md`](architecture/logging.md) |
 | ORM (MongoDB) | [`architecture/orm.md`](architecture/orm.md) |
+| ORM (SQL / PostgreSQL + pgvector) | [`architecture/orm-sql.md`](architecture/orm-sql.md) |
 | Console-команды | [`architecture/console.md`](architecture/console.md) |
 
 ## Разработка

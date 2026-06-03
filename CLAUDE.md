@@ -29,6 +29,7 @@ Full index: [docs/README.md](docs/README.md)
 - [Auth: JWT, AuthMiddleware](docs/architecture/auth.md)
 - [Logging](docs/architecture/logging.md)
 - [ORM: MongoDB, entities, repositories](docs/architecture/orm.md)
+- [ORM: SQL / PostgreSQL + pgvector](docs/architecture/orm-sql.md)
 - [Console](docs/architecture/console.md)
 
 ## Code Style

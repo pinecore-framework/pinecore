@@ -9,7 +9,7 @@ final class EntityMetadata
      * @param IndexMetadata[] $indexes
      */
     public function __construct(
-        public readonly ?string $collectionName,
+        public readonly ?string $storageName,
         public readonly array $fields,
         public readonly array $indexes = [],
     ) {}

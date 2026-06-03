@@ -6,6 +6,7 @@ use MongoDB\Database;
 use Pinecore\Pinecore\Config;
 use Pinecore\Pinecore\Console\ConsoleInput;
 use Pinecore\Pinecore\Console\ConsoleOutput;
+use Pinecore\Pinecore\Model\MongoEntity;
 use Pinecore\Pinecore\Orm\EntityMap;
 use Pinecore\Pinecore\Orm\IndexMetadata;
 
@@ -28,8 +29,12 @@ final class EnsureIndexesCommand
         $dryRun = (bool) ($input->options['dry-run'] ?? false);
 
         foreach ($entities as $class) {
+            if (!is_a($class, MongoEntity::class, true)) {
+                continue;
+            }
+
             $map = EntityMap::of($class);
-            if ($map->collectionName === null) {
+            if ($map->storageName === null) {
                 continue;
             }
 
@@ -39,15 +44,15 @@ final class EnsureIndexesCommand
 
                 if ($dryRun) {
                     $output->comment(
-                        "[dry-run] {$map->collectionName}.{$idx->field} "
+                        "[dry-run] {$map->storageName}.{$idx->field} "
                         . json_encode(['keys' => $keys, 'options' => $opts])
                     );
                     continue;
                 }
 
-                $this->db->selectCollection($map->collectionName)->createIndex($keys, $opts);
+                $this->db->selectCollection($map->storageName)->createIndex($keys, $opts);
                 $label = $idx->name ?? 'auto';
-                $output->success("{$map->collectionName}.{$idx->field} ({$label})");
+                $output->success("{$map->storageName}.{$idx->field} ({$label})");
             }
         }
     }

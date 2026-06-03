@@ -14,21 +14,21 @@ use Tests\Pinecore\Pinecore\Fixtures\Orm\SimpleUser;
 final class EntityMapTest extends TestCase
 {
     #[Test]
-    public function topLevelEntityExposesCollectionName(): void
+    public function topLevelEntityExposesStorageName(): void
     {
         $meta = EntityMap::of(SimpleUser::class);
 
-        self::assertSame('simple_users', $meta->collectionName);
+        self::assertSame('simple_users', $meta->storageName);
     }
 
     #[Test]
     public function embeddedClassWithoutCollectionAttributeBuilds(): void
     {
         // EmbeddedAddress is not a MongoEntity and has no #[Collection] —
-        // EntityMap must still build metadata for it (collectionName === null).
+        // EntityMap must still build metadata for it (storageName === null).
         $meta = EntityMap::of(EmbeddedAddress::class);
 
-        self::assertNull($meta->collectionName);
+        self::assertNull($meta->storageName);
         self::assertCount(2, $meta->fields);
     }
 

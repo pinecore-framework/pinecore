@@ -83,11 +83,11 @@ final class UserRepository extends AbstractMongoRepository
 ## EntityMap (`src/Orm/EntityMap.php`)
 
 Кеширует метаданные entity (reflection). `EntityMap::of(ClassName::class)` возвращает объект с:
-- `collectionName` — `string` из `#[Collection]` для классов, реализующих `MongoEntity`; `null` для embedded-классов (без `#[Collection]`)
-- `fields` — список `FieldMetadata` (property, field name, флаги embedded, `isNullable`, `hasConstructorDefault`)
+- `storageName` — имя хранилища: `#[Collection]` для `MongoEntity`, `#[Table]` для `SqlEntity` (см. [`orm-sql.md`](orm-sql.md)); `null` для embedded-классов (без `#[Collection]`/`#[Table]`)
+- `fields` — список `FieldMetadata` (property, field name, флаги embedded/json/vector, `isNullable`, `hasConstructorDefault`)
 - `idField()` — `FieldMetadata` поля с `#[Id]` (бросает `LogicException`, если нет)
 
-`#[Collection]` обязателен только для классов, реализующих `MongoEntity`. Embedded value-objects используют те же `#[Field]`/`#[Embedded]`/`#[EmbeddedList]` атрибуты, но сами `MongoEntity` не реализуют и `#[Collection]` им не нужен.
+`EntityMap` обслуживает обе ветки ORM: `#[Collection]` обязателен для `MongoEntity`, `#[Table]` — для `SqlEntity`. Embedded value-objects используют те же `#[Field]`/`#[Embedded]`/`#[EmbeddedList]` атрибуты, но ни `MongoEntity`, ни `SqlEntity` не реализуют, и имя хранилища им не нужно (`storageName === null`).
 
 ### Валидация атрибутов
 

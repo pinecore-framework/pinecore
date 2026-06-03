@@ -82,6 +82,6 @@ abstract class AbstractMongoRepository
     protected function collection(string $entityClass): Collection
     {
         $map = EntityMap::of($entityClass);
-        return $this->db->selectCollection($map->collectionName);
+        return $this->db->selectCollection($map->storageName);
     }
 }

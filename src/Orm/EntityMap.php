@@ -3,12 +3,16 @@
 namespace Pinecore\Pinecore\Orm;
 
 use Pinecore\Pinecore\Model\MongoEntity;
+use Pinecore\Pinecore\Model\SqlEntity;
 use Pinecore\Pinecore\Orm\Attributes\Collection;
 use Pinecore\Pinecore\Orm\Attributes\Embedded;
 use Pinecore\Pinecore\Orm\Attributes\EmbeddedList;
 use Pinecore\Pinecore\Orm\Attributes\Field;
 use Pinecore\Pinecore\Orm\Attributes\Id;
 use Pinecore\Pinecore\Orm\Attributes\Index;
+use Pinecore\Pinecore\Orm\Attributes\Json;
+use Pinecore\Pinecore\Orm\Attributes\Table;
+use Pinecore\Pinecore\Orm\Attributes\Vector;
 use ReflectionClass;
 use ReflectionIntersectionType;
 use ReflectionNamedType;
@@ -37,15 +41,22 @@ final class EntityMap
         $ref = new ReflectionClass($class);
 
         $collectionAttrs = $ref->getAttributes(Collection::class);
+        $tableAttrs      = $ref->getAttributes(Table::class);
         $isMongoEntity   = is_a($class, MongoEntity::class, true);
+        $isSqlEntity     = is_a($class, SqlEntity::class, true);
 
         if ($isMongoEntity && empty($collectionAttrs)) {
             throw new \LogicException("Class {$class} is missing #[Collection] attribute.");
         }
+        if ($isSqlEntity && empty($tableAttrs)) {
+            throw new \LogicException("Class {$class} is missing #[Table] attribute.");
+        }
 
-        $collectionName = empty($collectionAttrs)
-            ? null
-            : $collectionAttrs[0]->newInstance()->name;
+        $storageName = match (true) {
+            !empty($collectionAttrs) => $collectionAttrs[0]->newInstance()->name,
+            !empty($tableAttrs)      => $tableAttrs[0]->newInstance()->name,
+            default                  => null,
+        };
 
         $constructorParams = self::constructorParamsByName($ref);
         $fields  = [];
@@ -61,7 +72,13 @@ final class EntityMap
             if (empty($indexAttrs)) {
                 continue;
             }
-            if ($fieldMeta === null || $fieldMeta->isEmbedded || $fieldMeta->isEmbeddedList) {
+            if (
+                $fieldMeta === null
+                || $fieldMeta->isEmbedded
+                || $fieldMeta->isEmbeddedList
+                || $fieldMeta->isJson
+                || $fieldMeta->isVector
+            ) {
                 throw new \LogicException(
                     "#[Index] on {$class}::\${$property->getName()} requires #[Field] or #[Id] on the same property."
                 );
@@ -80,7 +97,7 @@ final class EntityMap
             }
         }
 
-        return new EntityMetadata($collectionName, $fields, $indexes);
+        return new EntityMetadata($storageName, $fields, $indexes);
     }
 
     /**
@@ -93,10 +110,15 @@ final class EntityMap
     ): ?FieldMetadata {
         $idAttrs = $property->getAttributes(Id::class);
         $fieldAttrs = $property->getAttributes(Field::class);
+        $jsonAttrs = $property->getAttributes(Json::class);
+        $vectorAttrs = $property->getAttributes(Vector::class);
         $embeddedAttrs = $property->getAttributes(Embedded::class);
         $embeddedListAttrs = $property->getAttributes(EmbeddedList::class);
 
-        if (empty($idAttrs) && empty($fieldAttrs) && empty($embeddedAttrs) && empty($embeddedListAttrs)) {
+        if (
+            empty($idAttrs) && empty($fieldAttrs) && empty($jsonAttrs) && empty($vectorAttrs)
+            && empty($embeddedAttrs) && empty($embeddedListAttrs)
+        ) {
             return null;
         }
 
@@ -131,6 +153,42 @@ final class EntityMap
                 embeddedClass: null,
                 isNullable: $isNullable,
                 hasConstructorDefault: $hasDefault,
+            );
+        }
+
+        if (!empty($jsonAttrs)) {
+            /** @var Json $json */
+            $json = $jsonAttrs[0]->newInstance();
+            return new FieldMetadata(
+                property: $property,
+                field: $json->name ?? $property->getName(),
+                isId: false,
+                type: self::typeName($property),
+                isEmbedded: false,
+                isEmbeddedList: false,
+                embeddedClass: null,
+                isNullable: $isNullable,
+                hasConstructorDefault: $hasDefault,
+                isJson: true,
+            );
+        }
+
+        if (!empty($vectorAttrs)) {
+            /** @var Vector $vector */
+            $vector = $vectorAttrs[0]->newInstance();
+            return new FieldMetadata(
+                property: $property,
+                field: $property->getName(),
+                isId: false,
+                type: self::typeName($property),
+                isEmbedded: false,
+                isEmbeddedList: false,
+                embeddedClass: null,
+                isNullable: $isNullable,
+                hasConstructorDefault: $hasDefault,
+                isVector: true,
+                vectorDim: $vector->dim,
+                vectorMetric: $vector->metric,
             );
         }
 
