@@ -156,9 +156,13 @@ abstract class AbstractSqlRepository
      * failure is a lost connection (so the next worker gets a fresh one). The
      * original PDOException is always rethrown for the caller/dispatcher to handle.
      *
+     * Use this from subclasses for custom SQL beyond findById/findOneWhere/
+     * findNearest — it keeps the connection-loss guard, so a repository never
+     * needs its own PDO (which would bypass the recycle behaviour).
+     *
      * @param array<string, mixed> $params
      */
-    private function execute(string $sql, array $params): PDOStatement
+    protected function execute(string $sql, array $params = []): PDOStatement
     {
         try {
             $stmt = $this->pdo->prepare($sql);

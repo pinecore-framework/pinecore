@@ -28,6 +28,12 @@ final class DocumentRepository extends AbstractSqlRepository
         $this->delete($id);
     }
 
+    /** Custom SQL via the guarded execute() — keeps reconnect-resistance, no own PDO. */
+    public function deleteByTenant(string $tenantId): int
+    {
+        return $this->execute('DELETE FROM documents WHERE tenant_id = :t', ['t' => $tenantId])->rowCount();
+    }
+
     /**
      * @param list<float> $vector
      * @return list<array{entity: object, distance: float}>

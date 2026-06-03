@@ -72,9 +72,22 @@ final class DocumentRepository extends AbstractSqlRepository
 | `findOneWhere(array): ?object` | equality-фильтр (колонка ⇒ значение), ANDed |
 | `delete(string): void` | удаление по `id` |
 | `findNearest(string $vectorField, array $vector, int $k, array $where = []): list` | kNN-поиск; возвращает `{entity, distance}` (меньше = ближе) |
+| `execute(string $sql, array $params = []): PDOStatement` | `protected` — выполнить произвольный SQL с connection-loss guard |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |
 
-`findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findNearest` принимают только equality-фильтры; сложные условия пишутся в собственных методах репозитория сырым SQL (query-builder'а во фреймворке нет).
+`findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findNearest` принимают только equality-фильтры; query-builder'а во фреймворке нет.
+
+**Сложные запросы пишутся в собственных методах репозитория через `protected execute()`** — он прогоняет SQL через тот же connection-loss guard (см. ниже), что и встроенные методы. Не заводите в репозитории собственный `PDO`: сырой запрос в обход `execute()` теряет реконнект-резистентность (воркер не ресайклится при обрыве коннекта).
+
+```php
+public function deactivateExpired(int $now): int
+{
+    return $this->execute(
+        'UPDATE sessions SET active = false WHERE expires_at < :now',
+        ['now' => $now],
+    )->rowCount();
+}
+```
 
 ## SqlHydrator (`src/Orm/SqlHydrator.php`)
 

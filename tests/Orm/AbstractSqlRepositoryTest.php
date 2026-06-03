@@ -101,6 +101,32 @@ final class AbstractSqlRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function customSqlViaGuardedExecuteRuns(): void
+    {
+        $this->repo->save(new Document('d1', 't1', 'a', [1.0, 2.0, 3.0]));
+        $this->repo->save(new Document('d2', 't1', 'b', [1.0, 2.0, 3.0]));
+        $this->repo->save(new Document('d3', 't2', 'c', [1.0, 2.0, 3.0]));
+
+        self::assertSame(2, $this->repo->deleteByTenant('t1'));
+        self::assertNull($this->repo->find('d1'));
+        self::assertNotNull($this->repo->find('d3'));
+    }
+
+    #[Test]
+    public function customSqlKeepsConnectionLossGuard(): void
+    {
+        $lifecycle = new WorkerLifecycle();
+        $repo      = $this->repoOnPdo(new ThrowingPdo('server closed the connection unexpectedly'), $lifecycle);
+
+        $this->expectException(\PDOException::class);
+        try {
+            $repo->deleteByTenant('t1');   // raw SQL through protected execute()
+        } finally {
+            self::assertTrue($lifecycle->shouldShutdown(), 'custom SQL must stay reconnect-resistant');
+        }
+    }
+
+    #[Test]
     public function lostConnectionFlagsWorkerForRecycle(): void
     {
         $lifecycle = new WorkerLifecycle();
