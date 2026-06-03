@@ -50,6 +50,7 @@ class ContainerFactory
                 $c->get(HttpApplication::class),
                 $c->get(ExceptionHandler::class),
                 $config->getInt('worker.max_requests', 0),
+                $c->get(WorkerLifecycle::class),
             ),
             ConsoleRouter::class => fn() => new ConsoleRouter([]),
         ]);

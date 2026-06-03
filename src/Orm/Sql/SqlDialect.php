@@ -30,4 +30,12 @@ interface SqlDialect
      * index opclass or the ANN index is bypassed.
      */
     public function vectorDistance(string $column, string $param, string $metric): string;
+
+    /**
+     * Tells whether a PDOException reflects a lost/broken connection (server
+     * restart, idle timeout, network drop) rather than a query-level error such
+     * as a constraint violation. Used to recycle the worker instead of serving
+     * errors from a dead cached connection.
+     */
+    public function isConnectionLost(\PDOException $e): bool;
 }

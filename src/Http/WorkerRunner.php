@@ -3,16 +3,20 @@
 namespace Pinecore\Pinecore\Http;
 
 use Pinecore\Pinecore\ExceptionHandler;
+use Pinecore\Pinecore\WorkerLifecycle;
 
 final class WorkerRunner
 {
-    private bool $shouldShutdown = false;
+    private readonly WorkerLifecycle $lifecycle;
 
     public function __construct(
         private readonly HttpApplication  $app,
         private readonly ExceptionHandler $exceptionHandler,
         private readonly int              $maxRequests = 0,
-    ) {}
+        ?WorkerLifecycle                  $lifecycle = null,
+    ) {
+        $this->lifecycle = $lifecycle ?? new WorkerLifecycle();
+    }
 
     public function run(?callable $loop = null): void
     {
@@ -55,7 +59,7 @@ final class WorkerRunner
             $this->app->terminate();
             gc_collect_cycles();
 
-            if (!$keepRunning || $this->shouldShutdown) {
+            if (!$keepRunning || $this->lifecycle->shouldShutdown()) {
                 break;
             }
         }
@@ -67,7 +71,7 @@ final class WorkerRunner
      */
     public function requestShutdown(): void
     {
-        $this->shouldShutdown = true;
+        $this->lifecycle->requestShutdown();
     }
 
     private function installSignalHandlers(): void

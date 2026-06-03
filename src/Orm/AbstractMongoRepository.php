@@ -4,7 +4,9 @@ namespace Pinecore\Pinecore\Orm;
 
 use MongoDB\Collection;
 use MongoDB\Database;
+use MongoDB\Driver\Exception\ConnectionException;
 use Pinecore\Pinecore\Orm\Attributes\ForEntity;
+use Pinecore\Pinecore\WorkerLifecycle;
 
 abstract class AbstractMongoRepository
 {
@@ -12,6 +14,7 @@ abstract class AbstractMongoRepository
         private readonly Database $db,
         private readonly MongoHydrator $hydrator,
         private readonly IdGenerator $ids,
+        private readonly ?WorkerLifecycle $lifecycle = null,
     ) {}
 
     /**
@@ -45,11 +48,11 @@ abstract class AbstractMongoRepository
             $doc[$idMeta->field] = $this->ids->generate();
         }
 
-        $this->collection($entity::class)->replaceOne(
+        $this->run(fn() => $this->collection($entity::class)->replaceOne(
             [$idMeta->field => $doc[$idMeta->field]],
             $doc,
             ['upsert' => true],
-        );
+        ));
 
         return $this->hydrator->hydrate($entity::class, $doc);
     }
@@ -58,7 +61,7 @@ abstract class AbstractMongoRepository
     {
         $entityClass = $this->entityClass();
         $idField     = EntityMap::of($entityClass)->idField()->field;
-        $doc         = $this->collection($entityClass)->findOne([$idField => $id]);
+        $doc         = $this->run(fn() => $this->collection($entityClass)->findOne([$idField => $id]));
 
         return $doc ? $this->hydrator->hydrate($entityClass, $doc) : null;
     }
@@ -66,7 +69,7 @@ abstract class AbstractMongoRepository
     protected function findOneWhere(array $filter): ?object
     {
         $entityClass = $this->entityClass();
-        $doc         = $this->collection($entityClass)->findOne($filter);
+        $doc         = $this->run(fn() => $this->collection($entityClass)->findOne($filter));
 
         return $doc ? $this->hydrator->hydrate($entityClass, $doc) : null;
     }
@@ -76,12 +79,27 @@ abstract class AbstractMongoRepository
         $entityClass = $this->entityClass();
         $idField     = EntityMap::of($entityClass)->idField()->field;
 
-        $this->collection($entityClass)->deleteOne([$idField => $id]);
+        $this->run(fn() => $this->collection($entityClass)->deleteOne([$idField => $id]));
     }
 
     protected function collection(string $entityClass): Collection
     {
         $map = EntityMap::of($entityClass);
         return $this->db->selectCollection($map->storageName);
+    }
+
+    /**
+     * Runs a driver operation, flagging the worker for recycling if the connection
+     * is lost (server restart, network drop) so the next worker reconnects fresh.
+     * The original exception is always rethrown.
+     */
+    private function run(callable $op): mixed
+    {
+        try {
+            return $op();
+        } catch (ConnectionException $e) {
+            $this->lifecycle?->requestShutdown();
+            throw $e;
+        }
     }
 }

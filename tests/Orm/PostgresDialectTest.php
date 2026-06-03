@@ -56,4 +56,38 @@ final class PostgresDialectTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->dialect->vectorDistance('embedding', ':vec', 'hamming');
     }
+
+    #[Test]
+    public function classifiesConnectionLossBySqlState(): void
+    {
+        self::assertTrue($this->dialect->isConnectionLost($this->pdoException('boom', '08006')));
+        self::assertTrue($this->dialect->isConnectionLost($this->pdoException('boom', '08003')));
+        self::assertTrue($this->dialect->isConnectionLost($this->pdoException('boom', '57P01')));
+    }
+
+    #[Test]
+    public function classifiesConnectionLossByMessageWhenSqlStateAbsent(): void
+    {
+        self::assertTrue($this->dialect->isConnectionLost(
+            $this->pdoException('SQLSTATE[HY000]: server closed the connection unexpectedly')
+        ));
+    }
+
+    #[Test]
+    public function queryErrorsAreNotConnectionLoss(): void
+    {
+        self::assertFalse($this->dialect->isConnectionLost(
+            $this->pdoException('duplicate key value violates unique constraint', '23505')
+        ));
+    }
+
+    private function pdoException(string $message, int|string $code = 0): \PDOException
+    {
+        $e = new \PDOException($message);
+        if ($code !== 0) {
+            $property = new \ReflectionProperty(\Exception::class, 'code');
+            $property->setValue($e, $code);   // SQLSTATE is a string at the driver level
+        }
+        return $e;
+    }
 }

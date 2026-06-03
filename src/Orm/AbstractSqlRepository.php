@@ -3,8 +3,10 @@
 namespace Pinecore\Pinecore\Orm;
 
 use PDO;
+use PDOStatement;
 use Pinecore\Pinecore\Orm\Attributes\ForEntity;
 use Pinecore\Pinecore\Orm\Sql\SqlDialect;
+use Pinecore\Pinecore\WorkerLifecycle;
 
 abstract class AbstractSqlRepository
 {
@@ -13,6 +15,7 @@ abstract class AbstractSqlRepository
         private readonly SqlDialect $dialect,
         private readonly SqlHydrator $hydrator,
         private readonly IdGenerator $ids,
+        private readonly ?WorkerLifecycle $lifecycle = null,
     ) {}
 
     /**
@@ -47,7 +50,7 @@ abstract class AbstractSqlRepository
         }
 
         $sql = $this->dialect->upsert($map->storageName, array_keys($row), $idField);
-        $this->pdo->prepare($sql)->execute($row);
+        $this->execute($sql, $row);
 
         return $this->hydrator->hydrate($entity::class, $row);
     }
@@ -64,9 +67,7 @@ abstract class AbstractSqlRepository
             $this->dialect->quoteIdentifier($idField),
         );
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['id' => $id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $this->execute($sql, ['id' => $id])->fetch(PDO::FETCH_ASSOC);
 
         return $row ? $this->hydrator->hydrate($entityClass, $row) : null;
     }
@@ -86,9 +87,7 @@ abstract class AbstractSqlRepository
             $whereSql,
         );
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $this->execute($sql, $params)->fetch(PDO::FETCH_ASSOC);
 
         return $row ? $this->hydrator->hydrate($entityClass, $row) : null;
     }
@@ -105,7 +104,7 @@ abstract class AbstractSqlRepository
             $this->dialect->quoteIdentifier($idField),
         );
 
-        $this->pdo->prepare($sql)->execute(['id' => $id]);
+        $this->execute($sql, ['id' => $id]);
     }
 
     /**
@@ -137,8 +136,7 @@ abstract class AbstractSqlRepository
             $limit,
         );
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $this->execute($sql, $params);
 
         $results = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -151,6 +149,27 @@ abstract class AbstractSqlRepository
         }
 
         return $results;
+    }
+
+    /**
+     * Prepares and executes a statement, flagging the worker for recycling if the
+     * failure is a lost connection (so the next worker gets a fresh one). The
+     * original PDOException is always rethrown for the caller/dispatcher to handle.
+     *
+     * @param array<string, mixed> $params
+     */
+    private function execute(string $sql, array $params): PDOStatement
+    {
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (\PDOException $e) {
+            if ($this->dialect->isConnectionLost($e)) {
+                $this->lifecycle?->requestShutdown();
+            }
+            throw $e;
+        }
     }
 
     private function vectorMetric(EntityMetadata $map, string $vectorField): string

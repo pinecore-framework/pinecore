@@ -5,9 +5,11 @@ namespace Tests\Pinecore\Pinecore\Orm;
 use PDO;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use PDOStatement;
 use Pinecore\Pinecore\Orm\IdGenerator;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\DocumentRepository;
 
@@ -96,5 +98,55 @@ final class AbstractSqlRepositoryTest extends TestCase
         $this->repo->remove('d1');
 
         self::assertNull($this->repo->find('d1'));
+    }
+
+    #[Test]
+    public function lostConnectionFlagsWorkerForRecycle(): void
+    {
+        $lifecycle = new WorkerLifecycle();
+        $repo      = $this->repoOnPdo(new ThrowingPdo('server closed the connection unexpectedly'), $lifecycle);
+
+        $this->expectException(\PDOException::class);
+        try {
+            $repo->save(new Document('d1', 't1', 'x', [1.0, 2.0, 3.0]));
+        } finally {
+            self::assertTrue($lifecycle->shouldShutdown(), 'worker should be flagged for recycle');
+        }
+    }
+
+    #[Test]
+    public function queryErrorDoesNotRecycleWorker(): void
+    {
+        $lifecycle = new WorkerLifecycle();
+        $repo      = $this->repoOnPdo(new ThrowingPdo('duplicate key value violates unique constraint'), $lifecycle);
+
+        try {
+            $repo->save(new Document('d1', 't1', 'x', [1.0, 2.0, 3.0]));
+            self::fail('expected PDOException');
+        } catch (\PDOException) {
+            // expected — rethrown
+        }
+
+        self::assertFalse($lifecycle->shouldShutdown());
+    }
+
+    private function repoOnPdo(PDO $pdo, WorkerLifecycle $lifecycle): DocumentRepository
+    {
+        $dialect = new PostgresDialect();
+        return new DocumentRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), $lifecycle);
+    }
+}
+
+/** PDO double whose prepare() always throws, simulating a driver failure. */
+final class ThrowingPdo extends PDO
+{
+    public function __construct(private readonly string $message)
+    {
+        // Intentionally skip parent constructor — no real connection.
+    }
+
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        throw new \PDOException($this->message);
     }
 }

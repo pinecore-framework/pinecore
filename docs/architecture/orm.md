@@ -55,7 +55,7 @@ final class UserRepository extends AbstractMongoRepository
 
 ## AbstractMongoRepository (`src/Orm/AbstractMongoRepository.php`)
 
-Инжектируется через DI: `Database`, `MongoHydrator`, `IdGenerator`.
+Инжектируется через DI: `Database`, `MongoHydrator`, `IdGenerator`, опц. `WorkerLifecycle`.
 
 | Метод | Описание |
 |---|---|
@@ -65,6 +65,10 @@ final class UserRepository extends AbstractMongoRepository
 | `delete(string $id): void` | deleteOne по полю `id` |
 | `collection(string $entityClass): Collection` | MongoDB\Collection для entity |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |
+
+### Оборванное соединение
+
+Операции драйвера обёрнуты в guard: при `MongoDB\Driver\Exception\ConnectionException` репозиторий помечает воркер на завершение через `WorkerLifecycle::requestShutdown()` и пробрасывает исключение. После итерации `WorkerRunner` ресайклит воркер — рантайм поднимает новый с живым соединением. Симметрично SQL-ветке (см. [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle)).
 
 ## MongoHydrator (`src/Orm/MongoHydrator.php`)
 

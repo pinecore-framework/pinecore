@@ -80,7 +80,7 @@ final class WorkerRunner
             $this->app->terminate();   // хук: закрытие ресурсов (сейчас пустой)
             gc_collect_cycles();
 
-            if (!$keepRunning || $this->shouldShutdown) break;
+            if (!$keepRunning || $this->lifecycle->shouldShutdown()) break;
         }
     }
 }
@@ -112,6 +112,8 @@ $runner->run(function ($handler) use ($runner, $health) {
     return true;
 });
 ```
+
+Флаг остановки вынесен в общий сервис `WorkerLifecycle` (DI-синглтон, без зависимостей): его читает `WorkerRunner` и его же дёргают обработчики сигналов. Тот же синглтон инжектится в репозитории — при оборванном соединении с БД (`PDOException`/`ConnectionException`) они вызывают `requestShutdown()`, и воркер ресайклится с живым коннектом. Детали — [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle) и [`orm.md`](orm.md).
 
 ## Конфигурация
 

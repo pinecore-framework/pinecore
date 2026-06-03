@@ -49,4 +49,38 @@ final class PostgresDialect implements SqlDialect
 
         return $this->quoteIdentifier($column) . ' ' . $op . ' ' . $param;
     }
+
+    public function isConnectionLost(\PDOException $e): bool
+    {
+        // SQLSTATE class 08 = connection exception; 57P01/02/03 = admin shutdown,
+        // crash shutdown, cannot connect now. pdo_pgsql exposes SQLSTATE via getCode().
+        $sqlState = $e->getCode();
+        if (is_string($sqlState) && $sqlState !== '') {
+            if (str_starts_with($sqlState, '08')) {
+                return true;
+            }
+            if (in_array($sqlState, ['57P01', '57P02', '57P03'], true)) {
+                return true;
+            }
+        }
+
+        // Connection-level failures often arrive as HY000/0 with the detail only
+        // in the driver message — match the well-known pgsql phrases.
+        $message = $e->getMessage();
+        foreach ([
+            'server closed the connection',
+            'no connection to the server',
+            'connection not open',
+            'terminating connection',
+            'could not connect',
+            'EOF detected',
+            'server has gone away',
+        ] as $needle) {
+            if (stripos($message, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
