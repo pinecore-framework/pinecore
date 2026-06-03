@@ -2,6 +2,8 @@
 
 SQL-ветка ORM, параллельная Mongo-ветке ([`orm.md`](orm.md)). Реализация — **Postgres-first**: CRUD-часть переносима на другие движки через `SqlDialect`, но векторный поиск завязан на **pgvector** (расширение только для PostgreSQL).
 
+> **Зависимости.** SQL-ветка не тянет ни одного composer-пакета — только PHP-расширения `ext-pdo` + `ext-pdo_pgsql`. pgvector доступен через сырой SQL-литерал, отдельной либы не нужно. (В `composer.json` фреймворка они в `suggest`; `ext-pdo_sqlite` — в `require-dev` для CRUD-теста репозитория.)
+
 ## Модель хранения (гибридная)
 
 | Атрибут | Колонка в PostgreSQL |

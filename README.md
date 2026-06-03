@@ -23,7 +23,12 @@ $container->get(WorkerRunner::class)->run();   // SAPI: один запрос
 composer require pinecore/pinecore
 ```
 
-PHP 8.2+, расширение `mongodb` (для ORM-слоя), опционально `pcntl` (graceful shutdown).
+PHP 8.2+. Слой персистентности опционален — ядро не тянет ни одну БД как `require`, бэкенд подключается по выбору:
+
+- **MongoDB ORM** — `composer require mongodb/mongodb` (+ расширение `ext-mongodb`);
+- **SQL / PostgreSQL ORM (pgvector)** — расширения `ext-pdo` + `ext-pdo_pgsql`, composer-пакетов не нужно.
+
+Опционально `pcntl` — graceful shutdown воркера.
 
 ## Bootstrap
 

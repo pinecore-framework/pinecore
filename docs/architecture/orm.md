@@ -1,5 +1,7 @@
 # ORM (MongoDB)
 
+> **Зависимость опциональна.** `mongodb/mongodb` вынесена из `require` фреймворка в `suggest`. Приложение, использующее Mongo-ORM, подключает её само: `composer require mongodb/mongodb` (требует `ext-mongodb`). Вся работа с либой заперта в `src/Orm/{AbstractMongoRepository, MongoHydrator, Console/EnsureIndexesCommand}` и резолвится лениво, поэтому без либы ядро (и SQL-ветка) грузится — падение будет только при инстанцировании Mongo-репозитория без установленной либы.
+
 ## Атрибуты
 
 | Атрибут | Применяется к | Описание |
