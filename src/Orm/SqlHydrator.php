@@ -47,6 +47,9 @@ final class SqlHydrator
                     $value = $this->parseVector($value);
                 } elseif ($field->isJson) {
                     $value = is_string($value) ? json_decode($value, true) : $value;
+                } elseif ($this->isDateTime($field)) {
+                    $value = new \DateTimeImmutable((string) $value);
+                    $value = $value->setTimezone(new \DateTimeZone('UTC'));
                 }
             }
 
@@ -72,6 +75,10 @@ final class SqlHydrator
                     $value = $this->dialect->vectorLiteral($value);
                 } elseif ($field->isJson) {
                     $value = json_encode($value);
+                } elseif ($value instanceof \DateTimeInterface) {
+                    $value = \DateTimeImmutable::createFromInterface($value)
+                        ->setTimezone(new \DateTimeZone('UTC'))
+                        ->format(\DATE_ATOM);
                 }
             }
 
@@ -97,5 +104,19 @@ final class SqlHydrator
         }
 
         return array_map(static fn(string $v): float => (float) $v, explode(',', $trimmed));
+    }
+
+    /**
+     * Opt-in by declared type: a plain column whose property is typed
+     * DateTimeImmutable (optionally nullable) is wrapped on read. union/string
+     * types are left untouched, so existing string timestamp fields keep working.
+     */
+    private function isDateTime(FieldMetadata $field): bool
+    {
+        if ($field->isVector || $field->isJson) {
+            return false;
+        }
+
+        return ltrim($field->type, '?') === \DateTimeImmutable::class;
     }
 }

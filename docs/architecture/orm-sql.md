@@ -10,6 +10,7 @@ SQL-ветка ORM, параллельная Mongo-ветке ([`orm.md`](orm.md
 |---|---|
 | `#[Id]` | первичный ключ (`text`/`uuid` — `IdGenerator` даёт строку) |
 | `#[Field]` | обычная типизированная колонка; имя = свойство или `#[Field(name: 'x')]` |
+| `#[Field]` + тип `DateTimeImmutable` | `timestamptz`; hydrator конвертит автоматически (UTC ↔ `DATE_ATOM`) |
 | `#[Vector(dim: N, metric: 'cosine')]` | `vector(N)` (pgvector); под ANN-индекс |
 | `#[Json]` | `jsonb` (значение кодируется/декодируется автоматически) |
 | `#[Index]` | B-tree/partial индекс на колонке (раскатывается `pg:ensure-indexes`) |
@@ -91,10 +92,19 @@ public function deactivateExpired(int $now): int
 
 ## SqlHydrator (`src/Orm/SqlHydrator.php`)
 
-- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]` и `json_decode` для `#[Json]`.
-- `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал через `SqlDialect`, `#[Json]` → `json_encode`.
+- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]`, `json_decode` для `#[Json]`, и оборачивает `timestamptz` в `DateTimeImmutable`.
+- `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал через `SqlDialect`, `#[Json]` → `json_encode`, `DateTimeInterface` → строка.
 
 Это единственное содержательное отличие от `MongoHydrator` — остальная логика (обход `fields`, named-args) идентична.
+
+### Дата/время
+
+Конверсия **type-driven и opt-in**: свойство `#[Field]`, типизированное `DateTimeImmutable` (или `?DateTimeImmutable`), автоматически маппится на `timestamptz`. Поля типа `string` не затрагиваются — обратная совместимость.
+
+- **dehydrate** (value-driven): любое значение `instanceof DateTimeInterface` → нормализуется в **UTC** и форматируется в `DATE_ATOM` (`2026-06-03T12:00:00+00:00`). Исходный объект не мутируется (`DateTimeImmutable::createFromInterface`).
+- **hydrate**: строка из колонки → `new DateTimeImmutable(...)`, приведённый к **UTC**.
+
+Оба конца — UTC. Колонку объявляйте `timestamptz` (хранит момент времени), не `timestamp`.
 
 ## SqlDialect (`src/Orm/Sql/`)
 

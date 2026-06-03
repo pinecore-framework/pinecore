@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\TimestampedRow;
 
 final class SqlHydratorTest extends TestCase
 {
@@ -64,6 +65,49 @@ final class SqlHydratorTest extends TestCase
         $restored = $this->hydrator->hydrate(Document::class, $this->hydrator->dehydrate($original));
 
         self::assertEquals($original, $restored);
+    }
+
+    #[Test]
+    public function dehydrateNormalizesDateTimeToUtcAtom(): void
+    {
+        $row = $this->hydrator->dehydrate(new TimestampedRow(
+            id: 'e1',
+            createdAt: new \DateTimeImmutable('2026-06-03 15:00:00', new \DateTimeZone('Europe/Moscow')),
+        ));
+
+        // Moscow 15:00 (+03:00) → UTC 12:00, DATE_ATOM format.
+        self::assertSame('2026-06-03T12:00:00+00:00', $row['created_at']);
+        self::assertNull($row['deleted_at']);
+    }
+
+    #[Test]
+    public function hydrateWrapsTimestampIntoUtcDateTimeImmutable(): void
+    {
+        $row = $this->hydrator->hydrate(TimestampedRow::class, [
+            'id'         => 'e1',
+            'created_at' => '2026-06-03 12:00:00+00',   // typical pgsql timestamptz text
+            'deleted_at' => null,
+        ]);
+
+        self::assertInstanceOf(\DateTimeImmutable::class, $row->createdAt);
+        self::assertSame('2026-06-03T12:00:00+00:00', $row->createdAt->format(\DATE_ATOM));
+        self::assertSame('UTC', $row->createdAt->getTimezone()->getName());
+        self::assertNull($row->deletedAt);
+    }
+
+    #[Test]
+    public function dateTimeRoundTripPreservesInstant(): void
+    {
+        $original = new TimestampedRow(
+            'e1',
+            new \DateTimeImmutable('2026-01-15T08:30:00+05:00'),
+            new \DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+        );
+
+        $restored = $this->hydrator->hydrate(TimestampedRow::class, $this->hydrator->dehydrate($original));
+
+        self::assertEquals($original->createdAt->getTimestamp(), $restored->createdAt->getTimestamp());
+        self::assertEquals($original->deletedAt->getTimestamp(), $restored->deletedAt->getTimestamp());
     }
 
     #[Test]
