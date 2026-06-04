@@ -181,6 +181,36 @@ return function (ContainerBuilder $builder, Config $config): void {
 
 `WorkerLifecycle` инжектится опционально (`?WorkerLifecycle = null`) — в DI это общий синглтон, тот же, что читает `ProcessLoop`; вне воркера (console, тесты) можно не передавать.
 
+### Readiness-проба (`SqlHealthCheck`)
+
+Guard выше срабатывает **только** на запросах через `AbstractSqlRepository`. Readiness-контроллер, который пингует БД напрямую (`$pdo->query('SELECT 1')`), обходит guard: при `worker.max_requests=0` (без рециклинга по счётчику) воркер держит протухший `PDO` после рестарта Postgres, и `/ready` отдаёт 503 бесконечно, пока воркер не перезапустят вручную.
+
+`SqlHealthCheck` (`src/Orm/Sql/SqlHealthCheck.php`) закрывает дыру — пинг через тот же путь рецикла:
+
+| Метод | Поведение |
+|---|---|
+| `isHealthy(): bool` | `SELECT 1`; `true` при успехе. На любой ошибке — `false` (проба = «не готов»); если ошибка — потеря соединения (`SqlDialect::isConnectionLost`), дополнительно помечает воркер на рецикл через тот же `WorkerLifecycle`. |
+
+Так после рестарта Postgres первая же проба `/ready` → 503 **и** флаг рецикла → `ProcessLoop` выходит из цикла (даже при `max_requests=0`) → рантайм поднимает свежий воркер с живым коннектом → `/ready` сам зеленеет, без ручного рестарта.
+
+Контроллер на стороне приложения:
+
+```php
+final class ReadinessController
+{
+    public function __construct(private readonly SqlHealthCheck $health) {}
+
+    public function __invoke(): Response
+    {
+        return $this->health->isHealthy()
+            ? Response::json(['status' => 'ready'])
+            : Response::json(['status' => 'unavailable'], 503);
+    }
+}
+```
+
+`SqlHealthCheck` автовайрится из DI (`PDO` + `SqlDialect` + общий `WorkerLifecycle`-синглтон). Зависит только от PDO-пинга — то же `ext-pdo`, никаких новых зависимостей.
+
 ## Схема и расширение
 
 DDL пишется вручную (механизма миграций во фреймворке нет; индексы — через `pg:ensure-indexes`):
@@ -204,4 +234,5 @@ CREATE TABLE documents (
 - **Лимит размерности HNSW.** pgvector индексирует `vector` до 2000 измерений. `text-embedding-3-large` (3072) под индекс требует `halfvec` или усечения размерности.
 - **Вектор биндится строкой.** Отдельного PDO-типа нет; `SqlHydrator` гоняет `float[] ↔ '[..]'`.
 - **`pdo_pgsql` отдаёт всё строками.** При `ATTR_EMULATE_PREPARES=false` числа приходят строками, а `bool` — как `'t'`/`'f'`. `SqlHydrator` приводит скаляры по объявленному типу свойства; не объявляйте флаг как `string` (получите `'t'`/`'f'` вместо `bool`) — типизируйте `bool`/`int`/`float`.
+- **Readiness в обход guard.** `/ready`, который пингует `PDO` напрямую, не ресайклит воркер при обрыве коннекта (вечный 503 при `max_requests=0`). Пингуйте через `SqlHealthCheck::isHealthy()`.
 - **TTL отсутствует.** В Mongo `expireAfterSeconds` чистит документы сам; в SQL это ваша cron-команда.
