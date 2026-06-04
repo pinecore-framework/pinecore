@@ -50,6 +50,8 @@ final class SqlHydrator
                 } elseif ($this->isDateTime($field)) {
                     $value = new \DateTimeImmutable((string) $value);
                     $value = $value->setTimezone(new \DateTimeZone('UTC'));
+                } else {
+                    $value = $this->coerceScalar($field, $value);
                 }
             }
 
@@ -118,5 +120,37 @@ final class SqlHydrator
         }
 
         return ltrim($field->type, '?') === \DateTimeImmutable::class;
+    }
+
+    /**
+     * Coerces a raw column value to the property's declared scalar type. The pgsql
+     * driver (with ATTR_EMULATE_PREPARES=false) returns every column as a string
+     * — including booleans as 't'/'f' — so a bool/int/float-typed property would
+     * otherwise get a string ('f' coerces to true; a TypeError under strict_types).
+     *
+     * Only the unambiguous scalar types are touched. string/mixed/union and any
+     * class type pass through unchanged, preserving existing behaviour.
+     */
+    private function coerceScalar(FieldMetadata $field, mixed $value): mixed
+    {
+        return match (ltrim($field->type, '?')) {
+            'bool'  => $this->toBool($value),
+            'int'   => (int) $value,
+            'float' => (float) $value,
+            default => $value,
+        };
+    }
+
+    private function toBool(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+
+        // Postgres text protocol yields 't'/'f'; accept common spellings too.
+        return in_array(strtolower((string) $value), ['t', 'true', '1', 'y', 'yes'], true);
     }
 }

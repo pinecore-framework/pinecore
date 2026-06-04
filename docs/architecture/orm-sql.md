@@ -92,8 +92,20 @@ public function deactivateExpired(int $now): int
 
 ## SqlHydrator (`src/Orm/SqlHydrator.php`)
 
-- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]`, `json_decode` для `#[Json]`, и оборачивает `timestamptz` в `DateTimeImmutable`.
+- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]`, `json_decode` для `#[Json]`, оборачивает `timestamptz` в `DateTimeImmutable` и **приводит скалярные колонки к объявленному типу** (см. ниже).
 - `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал через `SqlDialect`, `#[Json]` → `json_encode`, `DateTimeInterface` → строка.
+
+### Скалярные типы (приведение при чтении)
+
+Драйвер `pdo_pgsql` с `ATTR_EMULATE_PREPARES=false` возвращает **все** колонки строками, а `boolean` — как `'t'`/`'f'`. Без приведения свойство, типизированное `bool`, получило бы строку `'f'` → в coercive-режиме это непустая строка ≠ `'0'` → коэрсится в `true` (тихий баг видимости/флагов), а под `strict_types` — `TypeError`.
+
+`hydrate` кастует значение по объявленному типу свойства (`FieldMetadata->type`, с `ltrim('?')`):
+
+- `bool` ← `'t'/'f'/'1'/'0'/'true'/'false'/'y'/'yes'`, а также нативные `bool`/`int` → реальный `bool`;
+- `int` → `(int)`, `float` → `(float)`;
+- `string`, `mixed`, union-типы и классовые типы — **без изменений** (обратная совместимость).
+
+`null` остаётся `null`. Приведение идемпотентно: драйвер, отдающий уже нативные `bool`/`int`, тоже обрабатывается корректно.
 
 Это единственное содержательное отличие от `MongoHydrator` — остальная логика (обход `fields`, named-args) идентична.
 
@@ -191,4 +203,5 @@ CREATE TABLE documents (
 - **Оператор ⇄ opclass.** `vector_cosine_ops` индекс работает только с `<=>`. Возьмёшь `<->` — индекс молча игнорируется (seq scan). Метрика в `#[Vector]` и opclass в `pg:ensure-indexes` выводятся из одного источника, так что рассинхрон возможен только при ручном DDL.
 - **Лимит размерности HNSW.** pgvector индексирует `vector` до 2000 измерений. `text-embedding-3-large` (3072) под индекс требует `halfvec` или усечения размерности.
 - **Вектор биндится строкой.** Отдельного PDO-типа нет; `SqlHydrator` гоняет `float[] ↔ '[..]'`.
+- **`pdo_pgsql` отдаёт всё строками.** При `ATTR_EMULATE_PREPARES=false` числа приходят строками, а `bool` — как `'t'`/`'f'`. `SqlHydrator` приводит скаляры по объявленному типу свойства; не объявляйте флаг как `string` (получите `'t'`/`'f'` вместо `bool`) — типизируйте `bool`/`int`/`float`.
 - **TTL отсутствует.** В Mongo `expireAfterSeconds` чистит документы сам; в SQL это ваша cron-команда.

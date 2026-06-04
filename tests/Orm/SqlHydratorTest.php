@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\ScalarRow;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\TimestampedRow;
 
 final class SqlHydratorTest extends TestCase
@@ -108,6 +109,60 @@ final class SqlHydratorTest extends TestCase
 
         self::assertEquals($original->createdAt->getTimestamp(), $restored->createdAt->getTimestamp());
         self::assertEquals($original->deletedAt->getTimestamp(), $restored->deletedAt->getTimestamp());
+    }
+
+    #[Test]
+    public function hydrateCoercesPostgresStringScalars(): void
+    {
+        // pdo_pgsql (ATTR_EMULATE_PREPARES=false) returns every column as text:
+        // booleans as 't'/'f', numbers as numeric strings.
+        $row = $this->hydrator->hydrate(ScalarRow::class, [
+            'id'         => 'p1',
+            'is_visible' => 'f',
+            'view_count' => '42',
+            'score'      => '3.5',
+            'is_pinned'  => 't',
+        ]);
+
+        self::assertSame(false, $row->isVisible);   // 'f' must NOT become true
+        self::assertSame(42, $row->viewCount);
+        self::assertSame(3.5, $row->score);
+        self::assertSame(true, $row->isPinned);
+    }
+
+    #[Test]
+    public function hydrateLeavesNullableScalarNull(): void
+    {
+        $row = $this->hydrator->hydrate(ScalarRow::class, [
+            'id'         => 'p1',
+            'is_visible' => 't',
+            'view_count' => '0',
+            'score'      => '0',
+            'is_pinned'  => null,
+        ]);
+
+        self::assertSame(true, $row->isVisible);
+        self::assertSame(0, $row->viewCount);
+        self::assertSame(0.0, $row->score);
+        self::assertNull($row->isPinned);
+    }
+
+    #[Test]
+    public function hydrateAcceptsNativeBoolFromDriver(): void
+    {
+        // Some drivers/configs return real bools/ints; coercion must be idempotent.
+        $row = $this->hydrator->hydrate(ScalarRow::class, [
+            'id'         => 'p1',
+            'is_visible' => true,
+            'view_count' => 7,
+            'score'      => 1.25,
+            'is_pinned'  => false,
+        ]);
+
+        self::assertSame(true, $row->isVisible);
+        self::assertSame(7, $row->viewCount);
+        self::assertSame(1.25, $row->score);
+        self::assertSame(false, $row->isPinned);
     }
 
     #[Test]
