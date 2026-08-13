@@ -238,6 +238,11 @@ final class TinyLimitDialect implements \Pinecore\Pinecore\Orm\Sql\SqlDialect
         return $this->pg->vectorLiteral($vector);
     }
 
+    public function boolLiteral(bool $value): string
+    {
+        return $this->pg->boolLiteral($value);
+    }
+
     public function vectorDistance(string $column, string $param, string $metric): string
     {
         return $this->pg->vectorDistance($column, $param, $metric);

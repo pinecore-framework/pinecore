@@ -198,7 +198,11 @@ final class Place implements SqlEntity
 - `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]`, `json_decode` для `#[Json]`, оборачивает `timestamptz` в `DateTimeImmutable` и **приводит скалярные колонки к объявленному типу** (см. ниже).
 - `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал через `SqlDialect`, `#[Json]` → `json_encode`, `DateTimeInterface` → строка.
 
-### Скалярные типы (приведение при чтении)
+### Скалярные типы
+
+Скаляры конвертируются в **обе** стороны, и по разным причинам.
+
+#### Чтение: приведение к объявленному типу
 
 Драйвер `pdo_pgsql` с `ATTR_EMULATE_PREPARES=false` возвращает **все** колонки строками, а `boolean` — как `'t'`/`'f'`. Без приведения свойство, типизированное `bool`, получило бы строку `'f'` → в coercive-режиме это непустая строка ≠ `'0'` → коэрсится в `true` (тихий баг видимости/флагов), а под `strict_types` — `TypeError`.
 
@@ -209,6 +213,14 @@ final class Place implements SqlEntity
 - `string`, `mixed`, union-типы и классовые типы — **без изменений** (обратная совместимость).
 
 `null` остаётся `null`. Приведение идемпотентно: драйвер, отдающий уже нативные `bool`/`int`, тоже обрабатывается корректно.
+
+#### Запись: `bool` разворачивается в литерал диалекта
+
+`execute()` передаёт параметры массивом в `PDOStatement::execute()`, а PDO биндит такой массив целиком как `PARAM_STR`. PHP-`false` при этом превращается в **пустую строку**: на `boolean`-колонке это `SQLSTATE[22P02] invalid input syntax for type boolean: ""`, а на `text`-колонке — тихо записанная пустая строка (что хуже падения). `true` доезжает как `'1'` и проходит случайно.
+
+Поэтому `dehydrate` разворачивает `bool` через `SqlDialect::boolLiteral()` (`'t'`/`'f'` у Postgres) — симметрично приведению `'t'/'f'` → `bool` при чтении и по той же схеме, что вектор через `vectorLiteral()`. Конверсия **value-driven** (`is_bool($value)`), так что срабатывает и на `mixed`-свойстве. `null` остаётся `null` и доезжает как SQL `NULL`.
+
+Конверсия живёт в гидраторе, то есть покрывает `persist()`, `persistAll()` и `dehydrateEntity()`. В **своём** SQL через `execute()` сырой `bool` в `$params` по-прежнему уедет строкой — гоняйте значения через `dehydrateEntity()` или подставляйте `$dialect->boolLiteral(...)` сами.
 
 Это единственное содержательное отличие от `MongoHydrator` — остальная логика (обход `fields`, named-args) идентична.
 
@@ -232,6 +244,7 @@ final class Place implements SqlEntity
 | `upsertMany(table, columns, idColumn, rowCount)` | то же на `rowCount` строк; плейсхолдеры `:r{i}_{col}` |
 | `maxBindParameters()` | `65535` — потолок пачки в `persistAll()` |
 | `vectorLiteral(array)` | `'[0.1,0.2,…]'` |
+| `boolLiteral(bool)` | `'t'` / `'f'` |
 | `vectorDistance(column, param, metric)` | `cosine → <=>`, `l2 → <->`, `ip → <#>` |
 
 MySQL-диалект добавляется одним классом для CRUD-части (`upsert` → `ON DUPLICATE KEY UPDATE`, своё quoting). **Векторные методы на MySQL не реализуемы** — pgvector только для PostgreSQL; это сознательная граница.
@@ -365,6 +378,7 @@ CREATE TABLE documents (
 - **Оператор ⇄ opclass.** `vector_cosine_ops` индекс работает только с `<=>`. Возьмёшь `<->` — индекс молча игнорируется (seq scan). Метрика в `#[Vector]` и opclass в `pg:ensure-indexes` выводятся из одного источника, так что рассинхрон возможен только при ручном DDL.
 - **Лимит размерности HNSW.** pgvector индексирует `vector` до 2000 измерений. `text-embedding-3-large` (3072) под индекс требует `halfvec` или усечения размерности.
 - **Вектор биндится строкой.** Отдельного PDO-типа нет; `SqlHydrator` гоняет `float[] ↔ '[..]'`.
+- **`false` при наивном биндинге превращается в `''`.** PDO биндит параметры, переданные массивом в `execute()`, как `PARAM_STR`; PHP-`false` даёт пустую строку → `invalid input syntax for type boolean: ""` на `boolean`-колонке и тихо записанная пустая строка на `text`-колонке. `true` уезжает как `'1'` и проходит — то есть без конверсии работает ровно половина булевых значений. `dehydrate()` это чинит (`boolLiteral()`), но **в собственном SQL через `execute()` сырой `bool` в `$params` всё ещё ваш**: гоняйте через `dehydrateEntity()` или `$dialect->boolLiteral(...)`.
 - **`pdo_pgsql` отдаёт всё строками.** При `ATTR_EMULATE_PREPARES=false` числа приходят строками, а `bool` — как `'t'`/`'f'`. `SqlHydrator` приводит скаляры по объявленному типу свойства; не объявляйте флаг как `string` (получите `'t'`/`'f'` вместо `bool`) — типизируйте `bool`/`int`/`float`.
 - **Readiness в обход guard.** `/ready`, который пингует `PDO` напрямую, не ресайклит воркер при обрыве коннекта (вечный 503 при `max_requests=0`). Пингуйте через `SqlHealthCheck::isHealthy()`.
 - **TTL отсутствует.** В Mongo `expireAfterSeconds` чистит документы сам; в SQL это ваша cron-команда.

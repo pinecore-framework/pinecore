@@ -81,6 +81,11 @@ final class SqlHydrator
                     $value = \DateTimeImmutable::createFromInterface($value)
                         ->setTimezone(new \DateTimeZone('UTC'))
                         ->format(\DATE_ATOM);
+                } elseif (is_bool($value)) {
+                    // PDO binds execute() array parameters as strings, so a raw
+                    // false would reach the server as '' — rejected by a boolean
+                    // column, and silently stored as an empty string by a text one.
+                    $value = $this->dialect->boolLiteral($value);
                 }
             }
 

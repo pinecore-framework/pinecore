@@ -39,6 +39,14 @@ interface SqlDialect
     public function vectorLiteral(array $vector): string;
 
     /**
+     * Renders a PHP bool as a literal string bindable as a query parameter.
+     * PDO binds array-style execute() parameters as strings, and `false` casts to
+     * '' — which no boolean column accepts — so the value has to be spelled out
+     * in whatever the engine understands ('t'/'f' on Postgres, '1'/'0' elsewhere).
+     */
+    public function boolLiteral(bool $value): string;
+
+    /**
      * SQL distance expression between stored $column and bound $param, using the
      * operator matching $metric ('cosine'|'l2'|'ip'). The operator MUST match the
      * index opclass or the ANN index is bypassed.

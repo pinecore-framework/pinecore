@@ -148,6 +148,37 @@ final class SqlHydratorTest extends TestCase
     }
 
     #[Test]
+    public function dehydrateSpellsBooleansOutForTheDriver(): void
+    {
+        // PDO binds execute() array parameters as strings, turning false into ''.
+        $row = $this->hydrator->dehydrate(new ScalarRow('p1', false, 42, 3.5, true));
+
+        self::assertSame('f', $row['is_visible']);
+        self::assertSame('t', $row['is_pinned']);
+        self::assertSame(42, $row['view_count'], 'only bools need spelling out');
+        self::assertSame(3.5, $row['score']);
+    }
+
+    #[Test]
+    public function booleanScalarsSurviveARoundTrip(): void
+    {
+        $original = new ScalarRow('p1', false, 0, 0.0, false);
+
+        $restored = $this->hydrator->hydrate(ScalarRow::class, $this->hydrator->dehydrate($original));
+
+        self::assertSame(false, $restored->isVisible);
+        self::assertSame(false, $restored->isPinned);
+    }
+
+    #[Test]
+    public function dehydrateKeepsNullableBoolNull(): void
+    {
+        $row = $this->hydrator->dehydrate(new ScalarRow('p1', true, 0, 0.0, null));
+
+        self::assertNull($row['is_pinned']);
+    }
+
+    #[Test]
     public function hydrateAcceptsNativeBoolFromDriver(): void
     {
         // Some drivers/configs return real bools/ints; coercion must be idempotent.

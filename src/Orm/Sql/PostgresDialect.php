@@ -79,6 +79,11 @@ final class PostgresDialect implements SqlDialect
         return '[' . implode(',', array_map(static fn($v): float => (float) $v, $vector)) . ']';
     }
 
+    public function boolLiteral(bool $value): string
+    {
+        return $value ? 't' : 'f';
+    }
+
     public function vectorDistance(string $column, string $param, string $metric): string
     {
         $op = match ($metric) {
