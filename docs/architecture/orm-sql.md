@@ -74,7 +74,7 @@ final class DocumentRepository extends AbstractSqlRepository
 | `persist(object): object` | upsert (`INSERT … ON CONFLICT (id) DO UPDATE`) по полю `id` |
 | `persistAll(iterable $entities, int $batchSize = 500): int` | пакетный upsert одним multi-row `INSERT`; возвращает число записанных строк |
 | `findById(string): ?object` | поиск по `id` |
-| `findOneWhere(array): ?object` | equality-фильтр (колонка ⇒ значение), ANDed |
+| `findOneWhere(array): ?object` | equality-фильтр (колонка ⇒ значение), ANDed; `null` ⇒ `IS NULL` |
 | `delete(string): void` | удаление по `id` |
 | `findNearest(string $vectorField, array $vector, int $k, array $where = []): list` | kNN-поиск; возвращает `{entity, distance}` (меньше = ближе) |
 | `execute(string $sql, array $params = []): PDOStatement` | выполнить произвольный SQL с connection-loss guard |
@@ -82,9 +82,23 @@ final class DocumentRepository extends AbstractSqlRepository
 | `hydrateRow(array $row, ?string $class = null): object` | `final` — строка результата → сущность |
 | `hydrateRows(iterable $rows, ?string $class = null): list` | `final` — набор строк → список сущностей |
 | `dehydrateEntity(object): array` | `final` — сущность → колонки, готовые к bind |
+| `bindable(mixed): mixed` | `final` — привести одиночное значение к bind-форме (для своего SQL) |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |
 
 `findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findNearest` принимают только equality-фильтры; query-builder'а во фреймворке нет.
+
+### Фильтры (`$where`)
+
+`findOneWhere()` и `findNearest(..., $where)` собирают условия одним билдером, ANDed:
+
+```php
+$this->findOneWhere(['tenant_id' => $tenant, 'active' => false, 'deleted_at' => null]);
+// WHERE "tenant_id" = :w0 AND "active" = :w1 AND "deleted_at" IS NULL
+```
+
+- **`null` разворачивается в `IS NULL`**, а не в `= :param`. В SQL `col = NULL` не истинно никогда, поэтому связанный `NULL` молча не находил бы ничего при существующих подходящих строках. Заодно это единственный способ искать `NULL` — отдельного синтаксиса нет;
+- остальные значения проходят то же приведение, что и запись (`bool` → `boolLiteral()`, `DateTimeInterface` → UTC `DATE_ATOM`), так что фильтр и `persist()` одинаково понимают одно и то же значение;
+- сравнение идёт по **сырой** колонке: `readExpr` оборачивает только проекцию.
 
 ### Свой SQL с маппингом в сущности
 
@@ -218,9 +232,29 @@ final class Place implements SqlEntity
 
 `execute()` передаёт параметры массивом в `PDOStatement::execute()`, а PDO биндит такой массив целиком как `PARAM_STR`. PHP-`false` при этом превращается в **пустую строку**: на `boolean`-колонке это `SQLSTATE[22P02] invalid input syntax for type boolean: ""`, а на `text`-колонке — тихо записанная пустая строка (что хуже падения). `true` доезжает как `'1'` и проходит случайно.
 
-Поэтому `dehydrate` разворачивает `bool` через `SqlDialect::boolLiteral()` (`'t'`/`'f'` у Postgres) — симметрично приведению `'t'/'f'` → `bool` при чтении и по той же схеме, что вектор через `vectorLiteral()`. Конверсия **value-driven** (`is_bool($value)`), так что срабатывает и на `mixed`-свойстве. `null` остаётся `null` и доезжает как SQL `NULL`.
+Обе проблемные формы разворачиваются в `SqlHydrator::toBindable()`:
 
-Конверсия живёт в гидраторе, то есть покрывает `persist()`, `persistAll()` и `dehydrateEntity()`. В **своём** SQL через `execute()` сырой `bool` в `$params` по-прежнему уедет строкой — гоняйте значения через `dehydrateEntity()` или подставляйте `$dialect->boolLiteral(...)` сами.
+| Значение | Уходит в драйвер |
+|---|---|
+| `bool` | `SqlDialect::boolLiteral()` — `'t'`/`'f'` у Postgres |
+| `DateTimeInterface` | UTC, `DATE_ATOM` |
+| всё остальное | без изменений |
+
+Конверсия **value-driven** (`is_bool($value)`), а не по объявленному типу, так что срабатывает и на `mixed`-свойстве. `null` не трогается и доезжает как SQL `NULL`.
+
+`toBindable()` — единая точка: её зовут и `dehydrate()` (запись сущностей), и сборка `$where` (фильтры), поэтому запись и фильтр всегда согласованы. Автоматически это покрывает `persist()`, `persistAll()`, `dehydrateEntity()`, `findOneWhere()`, `findNearest()`.
+
+Что **не** покрыто: свой SQL через `execute()`. Приводить там параметры автоматически значило бы переписывать `$params` каждого рукописного запроса — слишком широкий радиус. Вместо этого есть явный `protected bindable()`:
+
+```php
+public function countActive(bool $active): int
+{
+    return (int) $this->execute(
+        'SELECT COUNT(*) FROM sessions WHERE active = :a',
+        ['a' => $this->bindable($active)],
+    )->fetchColumn();
+}
+```
 
 Это единственное содержательное отличие от `MongoHydrator` — остальная логика (обход `fields`, named-args) идентична.
 
@@ -378,7 +412,8 @@ CREATE TABLE documents (
 - **Оператор ⇄ opclass.** `vector_cosine_ops` индекс работает только с `<=>`. Возьмёшь `<->` — индекс молча игнорируется (seq scan). Метрика в `#[Vector]` и opclass в `pg:ensure-indexes` выводятся из одного источника, так что рассинхрон возможен только при ручном DDL.
 - **Лимит размерности HNSW.** pgvector индексирует `vector` до 2000 измерений. `text-embedding-3-large` (3072) под индекс требует `halfvec` или усечения размерности.
 - **Вектор биндится строкой.** Отдельного PDO-типа нет; `SqlHydrator` гоняет `float[] ↔ '[..]'`.
-- **`false` при наивном биндинге превращается в `''`.** PDO биндит параметры, переданные массивом в `execute()`, как `PARAM_STR`; PHP-`false` даёт пустую строку → `invalid input syntax for type boolean: ""` на `boolean`-колонке и тихо записанная пустая строка на `text`-колонке. `true` уезжает как `'1'` и проходит — то есть без конверсии работает ровно половина булевых значений. `dehydrate()` это чинит (`boolLiteral()`), но **в собственном SQL через `execute()` сырой `bool` в `$params` всё ещё ваш**: гоняйте через `dehydrateEntity()` или `$dialect->boolLiteral(...)`.
+- **`false` при наивном биндинге превращается в `''`.** PDO биндит параметры, переданные массивом в `execute()`, как `PARAM_STR`; PHP-`false` даёт пустую строку → `invalid input syntax for type boolean: ""` на `boolean`-колонке и тихо записанная пустая строка на `text`-колонке. `true` уезжает как `'1'` и проходит — то есть без конверсии работает ровно половина булевых значений. Запись сущностей и фильтры это чинят через `toBindable()`, но **в собственном SQL через `execute()` сырой `bool` в `$params` всё ещё ваш** — оборачивайте в `$this->bindable(...)`.
+- **`col = NULL` не истинно никогда.** Поэтому `['col' => null]` в `$where` собирается в `IS NULL`, а не в связанный параметр — иначе фильтр молча возвращал бы «ничего» при существующих строках. Помните об этом в **своём** SQL: `WHERE col = :p` со связанным `NULL` не найдёт ничего и не упадёт.
 - **`pdo_pgsql` отдаёт всё строками.** При `ATTR_EMULATE_PREPARES=false` числа приходят строками, а `bool` — как `'t'`/`'f'`. `SqlHydrator` приводит скаляры по объявленному типу свойства; не объявляйте флаг как `string` (получите `'t'`/`'f'` вместо `bool`) — типизируйте `bool`/`int`/`float`.
 - **Readiness в обход guard.** `/ready`, который пингует `PDO` напрямую, не ресайклит воркер при обрыве коннекта (вечный 503 при `max_requests=0`). Пингуйте через `SqlHealthCheck::isHealthy()`.
 - **TTL отсутствует.** В Mongo `expireAfterSeconds` чистит документы сам; в SQL это ваша cron-команда.

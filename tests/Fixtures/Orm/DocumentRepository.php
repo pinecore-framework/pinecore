@@ -90,4 +90,20 @@ final class DocumentRepository extends AbstractSqlRepository
     {
         return $this->findNearest('embedding', $vector, $k);
     }
+
+    /**
+     * @param list<float>          $vector
+     * @param array<string, mixed> $where
+     * @return list<array{entity: object, distance: float}>
+     */
+    public function nearestWhere(array $vector, int $k, array $where): array
+    {
+        return $this->findNearest('embedding', $vector, $k, $where);
+    }
+
+    /** @param array<string, mixed> $where */
+    public function firstWhere(array $where): ?Document
+    {
+        return $this->findOneWhere($where);
+    }
 }

@@ -24,9 +24,24 @@ final class ScalarRowRepository extends AbstractSqlRepository
         return $this->findById($id);
     }
 
+    /** @param array<string, mixed> $where */
+    public function firstWhere(array $where): ?ScalarRow
+    {
+        return $this->findOneWhere($where);
+    }
+
     /** @return array<string, mixed> */
     public function columnsOf(ScalarRow $row): array
     {
         return $this->dehydrateEntity($row);
+    }
+
+    /** Custom SQL that normalises its own loose parameters. */
+    public function countVisible(bool $visible): int
+    {
+        return (int) $this->execute(
+            'SELECT COUNT(*) FROM profiles WHERE is_visible = :v',
+            ['v' => $this->bindable($visible)],
+        )->fetchColumn();
     }
 }

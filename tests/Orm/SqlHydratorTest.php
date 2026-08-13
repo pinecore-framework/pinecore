@@ -179,6 +179,25 @@ final class SqlHydratorTest extends TestCase
     }
 
     #[Test]
+    public function toBindableTouchesOnlyWhatPdoWouldMangle(): void
+    {
+        self::assertSame('f', $this->hydrator->toBindable(false));
+        self::assertSame('t', $this->hydrator->toBindable(true));
+        self::assertSame(
+            '2026-08-13T09:00:00+00:00',
+            $this->hydrator->toBindable(
+                new \DateTimeImmutable('2026-08-13 12:00:00', new \DateTimeZone('Europe/Moscow'))
+            ),
+        );
+
+        // Everything PDO can already stringify is left alone.
+        self::assertNull($this->hydrator->toBindable(null));
+        self::assertSame(42, $this->hydrator->toBindable(42));
+        self::assertSame(1.5, $this->hydrator->toBindable(1.5));
+        self::assertSame('t', $this->hydrator->toBindable('t'));
+    }
+
+    #[Test]
     public function hydrateAcceptsNativeBoolFromDriver(): void
     {
         // Some drivers/configs return real bools/ints; coercion must be idempotent.

@@ -77,15 +77,8 @@ final class SqlHydrator
                     $value = $this->dialect->vectorLiteral($value);
                 } elseif ($field->isJson) {
                     $value = json_encode($value);
-                } elseif ($value instanceof \DateTimeInterface) {
-                    $value = \DateTimeImmutable::createFromInterface($value)
-                        ->setTimezone(new \DateTimeZone('UTC'))
-                        ->format(\DATE_ATOM);
-                } elseif (is_bool($value)) {
-                    // PDO binds execute() array parameters as strings, so a raw
-                    // false would reach the server as '' — rejected by a boolean
-                    // column, and silently stored as an empty string by a text one.
-                    $value = $this->dialect->boolLiteral($value);
+                } else {
+                    $value = $this->toBindable($value);
                 }
             }
 
@@ -93,6 +86,32 @@ final class SqlHydrator
         }
 
         return $row;
+    }
+
+    /**
+     * Normalises a single PHP value into something PDO can bind.
+     *
+     * Parameters passed to PDOStatement::execute() as an array are all bound as
+     * PARAM_STR, which mangles two types: `false` becomes '' (rejected by a
+     * boolean column, silently stored as an empty string by a text one), and a
+     * DateTimeInterface has no string form at all. Everything else passes through.
+     *
+     * Shared by dehydrate() and the repository's WHERE builder, so entity writes
+     * and equality filters agree on the wire format of a value.
+     */
+    public function toBindable(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return \DateTimeImmutable::createFromInterface($value)
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format(\DATE_ATOM);
+        }
+
+        if (is_bool($value)) {
+            return $this->dialect->boolLiteral($value);
+        }
+
+        return $value;
     }
 
     /**

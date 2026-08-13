@@ -311,6 +311,17 @@ abstract class AbstractSqlRepository
     }
 
     /**
+     * Normalises a loose value for binding in custom SQL, the same way entity
+     * writes and equality filters do. execute() cannot apply this on its own —
+     * it would rewrite the parameters of every hand-written query — so reach for
+     * it when a bool or a DateTimeInterface goes into $params.
+     */
+    final protected function bindable(mixed $value): mixed
+    {
+        return $this->hydrator->toBindable($value);
+    }
+
+    /**
      * Explicit SELECT list for the entity's columns, applying #[Field(readExpr:)]
      * / #[Geometry] read expressions and aliasing them back to the column name.
      * Being explicit also decouples hydration from the physical column order and
@@ -388,6 +399,13 @@ abstract class AbstractSqlRepository
     }
 
     /**
+     * Builds the equality filter shared by findOneWhere() and findNearest().
+     *
+     * `null` becomes `IS NULL` rather than `= :param`: SQL's three-valued logic
+     * makes `col = NULL` never true, so binding it would quietly match nothing.
+     * Every other value goes through the hydrator's bindable normalisation, so a
+     * filter and a write agree on how a value is spelled on the wire.
+     *
      * @param array<string, mixed> $where
      * @return array{0: string, 1: array<string, mixed>}
      */
@@ -401,9 +419,16 @@ abstract class AbstractSqlRepository
         $params  = [];
         $i       = 0;
         foreach ($where as $column => $value) {
-            $placeholder           = 'w' . $i++;
-            $clauses[]             = $this->dialect->quoteIdentifier($column) . ' = :' . $placeholder;
-            $params[$placeholder]  = $value;
+            $quoted = $this->dialect->quoteIdentifier($column);
+
+            if ($value === null) {
+                $clauses[] = $quoted . ' IS NULL';
+                continue;
+            }
+
+            $placeholder          = 'w' . $i++;
+            $clauses[]            = $quoted . ' = :' . $placeholder;
+            $params[$placeholder] = $this->hydrator->toBindable($value);
         }
 
         return ['WHERE ' . implode(' AND ', $clauses), $params];
