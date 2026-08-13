@@ -7,6 +7,7 @@ use Pinecore\Pinecore\Config;
 use Pinecore\Pinecore\Console\ConsoleInput;
 use Pinecore\Pinecore\Console\ConsoleOutput;
 use Pinecore\Pinecore\Model\SqlEntity;
+use Pinecore\Pinecore\Orm\CompositeIndexMetadata;
 use Pinecore\Pinecore\Orm\EntityMap;
 use Pinecore\Pinecore\Orm\FieldMetadata;
 use Pinecore\Pinecore\Orm\IndexMetadata;
@@ -15,8 +16,11 @@ use Pinecore\Pinecore\Orm\Sql\SqlDialect;
 /**
  * Postgres counterpart of EnsureIndexesCommand. For each SqlEntity in
  * config('orm.entities') it creates:
- *   - a B-tree index per #[Index] (unique / DESC / partial honoured),
- *   - an HNSW index per #[Vector] column, with the opclass matching its metric.
+ *   - a B-tree index per #[Index] (unique / DESC / partial honoured), or the
+ *     method named by #[Index(using:)] — 'gist', 'gin', …,
+ *   - a multi-column index per class-level #[CompositeIndex],
+ *   - an HNSW index per #[Vector] column, with the opclass matching its metric,
+ *   - a GiST index per #[Geometry] column (unless it declares index: false).
  *
  * All statements use CREATE INDEX IF NOT EXISTS, so re-running is idempotent.
  * TTL (#[Index(expireAfterSeconds:)]) has no SQL equivalent — it is reported and
@@ -24,6 +28,9 @@ use Pinecore\Pinecore\Orm\Sql\SqlDialect;
  */
 final class PgEnsureIndexesCommand
 {
+    /** Index methods PostgreSQL ships with; anything else is a typo, not a plugin. */
+    private const METHODS = ['btree', 'hash', 'gist', 'spgist', 'gin', 'brin'];
+
     public function __construct(
         private readonly Config $config,
         private readonly PDO $pdo,
@@ -58,12 +65,18 @@ final class PgEnsureIndexesCommand
                         . 'use a scheduled cleanup command instead'
                     );
                 }
-                $this->run($output, $dryRun, $this->btreeStatement($map->storageName, $idx));
+                $this->run($output, $dryRun, $this->singleColumnStatement($map->storageName, $idx));
+            }
+
+            foreach ($map->compositeIndexes as $composite) {
+                $this->run($output, $dryRun, $this->compositeStatement($map->storageName, $composite));
             }
 
             foreach ($map->fields as $field) {
                 if ($field->isVector) {
                     $this->run($output, $dryRun, $this->hnswStatement($map->storageName, $field));
+                } elseif ($field->isGeometry && $field->geometryIndex) {
+                    $this->run($output, $dryRun, $this->gistStatement($map->storageName, $field));
                 }
             }
         }
@@ -80,23 +93,52 @@ final class PgEnsureIndexesCommand
         $output->success($sql);
     }
 
-    private function btreeStatement(string $table, IndexMetadata $idx): string
+    private function singleColumnStatement(string $table, IndexMetadata $idx): string
     {
-        $name      = $idx->name ?? "idx_{$table}_{$idx->field}";
-        $unique    = $idx->unique ? 'UNIQUE ' : '';
-        $direction = $idx->direction < 0 ? ' DESC' : '';
+        $method = $this->method($idx->using, "{$table}.{$idx->field}");
+        $name   = $idx->name ?? "idx_{$table}_{$idx->field}";
+        $unique = $idx->unique ? 'UNIQUE ' : '';
+        // Only B-tree has an ordered form; DESC on gist/gin is a syntax error.
+        $direction = ($idx->direction < 0 && ($method === null || $method === 'btree')) ? ' DESC' : '';
         $partial   = $idx->sparse
             ? ' WHERE ' . $this->dialect->quoteIdentifier($idx->field) . ' IS NOT NULL'
             : '';
 
         return sprintf(
-            'CREATE %sINDEX IF NOT EXISTS %s ON %s (%s%s)%s',
+            'CREATE %sINDEX IF NOT EXISTS %s ON %s%s (%s%s)%s',
             $unique,
             $this->dialect->quoteIdentifier($name),
             $this->dialect->quoteIdentifier($table),
+            $method === null ? '' : " USING {$method}",
             $this->dialect->quoteIdentifier($idx->field),
             $direction,
             $partial,
+        );
+    }
+
+    private function compositeStatement(string $table, CompositeIndexMetadata $idx): string
+    {
+        $method = $this->method($idx->using, $table . '(' . implode(', ', $idx->columns) . ')');
+        $name   = $idx->name ?? 'idx_' . $table . '_' . implode('_', $idx->columns);
+        $unique = $idx->unique ? 'UNIQUE ' : '';
+
+        return sprintf(
+            'CREATE %sINDEX IF NOT EXISTS %s ON %s%s (%s)',
+            $unique,
+            $this->dialect->quoteIdentifier($name),
+            $this->dialect->quoteIdentifier($table),
+            $method === null ? '' : " USING {$method}",
+            implode(', ', array_map([$this->dialect, 'quoteIdentifier'], $idx->columns)),
+        );
+    }
+
+    private function gistStatement(string $table, FieldMetadata $field): string
+    {
+        return sprintf(
+            'CREATE INDEX IF NOT EXISTS %s ON %s USING gist (%s)',
+            $this->dialect->quoteIdentifier("idx_{$table}_{$field->field}_gist"),
+            $this->dialect->quoteIdentifier($table),
+            $this->dialect->quoteIdentifier($field->field),
         );
     }
 
@@ -118,5 +160,25 @@ final class PgEnsureIndexesCommand
             $this->dialect->quoteIdentifier($field->field),
             $opclass,
         );
+    }
+
+    /**
+     * The index method goes into DDL unquoted, so it is whitelisted rather than
+     * escaped — this also turns a typo into an error instead of a syntax failure.
+     */
+    private function method(?string $using, string $where): ?string
+    {
+        if ($using === null) {
+            return null;
+        }
+
+        $method = strtolower($using);
+        if (!in_array($method, self::METHODS, true)) {
+            throw new \InvalidArgumentException(
+                "Unknown index method '{$using}' on {$where}; expected one of: " . implode(', ', self::METHODS)
+            );
+        }
+
+        return $method;
     }
 }

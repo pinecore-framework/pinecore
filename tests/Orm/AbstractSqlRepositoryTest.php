@@ -113,6 +113,51 @@ final class AbstractSqlRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function customSqlResultsAreMappedThroughHydrationFacade(): void
+    {
+        $this->repo->save(new Document('d1', 't1', 'Beta', [1.0, 2.0, 3.0], 'active', ['k' => 'v']));
+        $this->repo->save(new Document('d2', 't1', 'Alpha', [4.0, 5.0, 6.0]));
+        $this->repo->save(new Document('d3', 't2', 'Gamma', [7.0, 8.0, 9.0]));
+
+        $rows = $this->repo->byTenantOrdered('t1');
+
+        self::assertCount(2, $rows);
+        self::assertContainsOnlyInstancesOf(Document::class, $rows);
+        self::assertSame(['Alpha', 'Beta'], array_map(static fn(Document $d): string => $d->title, $rows));
+        // Typed round trip, not raw column strings.
+        self::assertSame([4.0, 5.0, 6.0], $rows[0]->embedding);
+        self::assertSame(['k' => 'v'], $rows[1]->metadata);
+    }
+
+    #[Test]
+    public function singleRowFacadeReturnsTypedEntity(): void
+    {
+        $this->repo->save(new Document('d1', 't1', 'Only', [1.0, 2.0, 3.0], 'active'));
+
+        $found = $this->repo->firstByTenant('t1');
+
+        self::assertInstanceOf(Document::class, $found);
+        self::assertSame('active', $found->status);
+        self::assertSame([1.0, 2.0, 3.0], $found->embedding);
+        self::assertNull($this->repo->firstByTenant('nobody'));
+    }
+
+    #[Test]
+    public function dehydrationFacadeYieldsBindableColumns(): void
+    {
+        $columns = $this->repo->columnsOf(
+            new Document('d1', 't1', 'Hello', [0.1, 0.2], 'active', ['k' => 'v'])
+        );
+
+        self::assertSame(
+            ['id', 'tenant_id', 'title', 'embedding', 'status', 'metadata'],
+            array_keys($columns),
+        );
+        self::assertSame('[0.1,0.2]', $columns['embedding'], 'vector must be a bindable literal');
+        self::assertSame('{"k":"v"}', $columns['metadata']);
+    }
+
+    #[Test]
     public function customSqlKeepsConnectionLossGuard(): void
     {
         $lifecycle = new WorkerLifecycle();

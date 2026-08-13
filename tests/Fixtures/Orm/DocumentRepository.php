@@ -28,10 +28,58 @@ final class DocumentRepository extends AbstractSqlRepository
         $this->delete($id);
     }
 
+    /** @param iterable<Document> $documents */
+    public function saveAll(iterable $documents, int $batchSize = 500): int
+    {
+        return $this->persistAll($documents, $batchSize);
+    }
+
     /** Custom SQL via the guarded execute() — keeps reconnect-resistance, no own PDO. */
     public function deleteByTenant(string $tenantId): int
     {
         return $this->execute('DELETE FROM documents WHERE tenant_id = :t', ['t' => $tenantId])->rowCount();
+    }
+
+    /** Custom SQL mapped back to entities through the protected hydration facade. */
+    public function byTenantOrdered(string $tenantId): array
+    {
+        return $this->hydrateRows(
+            $this->execute(
+                'SELECT * FROM documents WHERE tenant_id = :t ORDER BY title',
+                ['t' => $tenantId],
+            )->fetchAll(\PDO::FETCH_ASSOC),
+        );
+    }
+
+    public function firstByTenant(string $tenantId): ?Document
+    {
+        $row = $this->execute(
+            'SELECT * FROM documents WHERE tenant_id = :t ORDER BY title LIMIT 1',
+            ['t' => $tenantId],
+        )->fetch(\PDO::FETCH_ASSOC);
+
+        return $row === false ? null : $this->hydrateRow($row);
+    }
+
+    /** @return array<string, mixed> */
+    public function columnsOf(Document $document): array
+    {
+        return $this->dehydrateEntity($document);
+    }
+
+    /** @template T @param callable():T $fn @return T */
+    public function atomically(callable $fn): mixed
+    {
+        return $this->transactional($fn);
+    }
+
+    /** Saves both documents in one unit; the inner call joins the outer transaction. */
+    public function savePairAtomically(Document $first, Document $second): void
+    {
+        $this->transactional(function () use ($first, $second): void {
+            $this->persist($first);
+            $this->transactional(fn() => $this->persist($second));
+        });
     }
 
     /**

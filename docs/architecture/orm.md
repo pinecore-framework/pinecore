@@ -136,6 +136,7 @@ public readonly ?string $referralCode;
 | `sparse` | `false` | Sparse-индекс (исключает документы без поля) |
 | `name` | `null` | Кастомное имя; `null` — MongoDB сгенерит |
 | `expireAfterSeconds` | `null` | TTL: автоматическое удаление документов |
+| `using` | `null` | **SQL-only**: метод индекса (`gist`, `gin`, …); Mongo-ветка игнорирует |
 
 `#[Index]` на свойстве без `#[Field]`/`#[Id]` (или на `#[Embedded]`/`#[EmbeddedList]`) → `LogicException` при построении метаданных. Имя поля в индексе берётся с учётом `#[Field(name: ...)]` — т.е. в Mongo индекс создаётся на BSON-поле, а не на имени PHP-свойства.
 

@@ -14,6 +14,24 @@ final class PostgresDialect implements SqlDialect
         $cols   = array_map([$this, 'quoteIdentifier'], $columns);
         $values = array_map(static fn(string $c): string => ':' . $c, $columns);
 
+        return sprintf(
+            'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s',
+            $this->quoteIdentifier($table),
+            implode(', ', $cols),
+            implode(', ', $values),
+            $this->quoteIdentifier($idColumn),
+            implode(', ', $this->excludedAssignments($columns, $idColumn)),
+        );
+    }
+
+    /**
+     * `col = EXCLUDED.col` for every column except the conflict key.
+     *
+     * @param list<string> $columns
+     * @return list<string>
+     */
+    private function excludedAssignments(array $columns, string $idColumn): array
+    {
         $updates = [];
         foreach ($columns as $c) {
             if ($c === $idColumn) {
@@ -23,14 +41,37 @@ final class PostgresDialect implements SqlDialect
             $updates[] = "{$q} = EXCLUDED.{$q}";
         }
 
+        return $updates;
+    }
+
+    public function upsertMany(string $table, array $columns, string $idColumn, int $rowCount): string
+    {
+        if ($columns === [] || $rowCount < 1) {
+            throw new \InvalidArgumentException('upsertMany() needs at least one column and one row');
+        }
+
+        $tuples = [];
+        for ($i = 0; $i < $rowCount; $i++) {
+            $tuples[] = '(' . implode(
+                ', ',
+                array_map(static fn(string $c): string => ":r{$i}_{$c}", $columns),
+            ) . ')';
+        }
+
         return sprintf(
-            'INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s',
+            'INSERT INTO %s (%s) VALUES %s ON CONFLICT (%s) DO UPDATE SET %s',
             $this->quoteIdentifier($table),
-            implode(', ', $cols),
-            implode(', ', $values),
+            implode(', ', array_map([$this, 'quoteIdentifier'], $columns)),
+            implode(', ', $tuples),
             $this->quoteIdentifier($idColumn),
-            implode(', ', $updates),
+            implode(', ', $this->excludedAssignments($columns, $idColumn)),
         );
+    }
+
+    public function maxBindParameters(): int
+    {
+        // Postgres' wire protocol caps parameters per statement at 2^16-1.
+        return 65535;
     }
 
     public function vectorLiteral(array $vector): string

@@ -11,5 +11,7 @@ final class IndexMetadata
         public readonly bool    $sparse,
         public readonly ?string $name,
         public readonly ?int    $expireAfterSeconds,
+        /** SQL index method ('gist', 'gin', …); null = engine default. Mongo ignores it. */
+        public readonly ?string $using = null,
     ) {}
 }

@@ -20,6 +20,20 @@ interface SqlDialect
     public function upsert(string $table, array $columns, string $idColumn): string;
 
     /**
+     * Builds a multi-row variant of {@see upsert()} for $rowCount rows. Named
+     * placeholders are `:r{index}_{column}`, so callers bind row-by-row.
+     *
+     * @param list<string> $columns
+     */
+    public function upsertMany(string $table, array $columns, string $idColumn, int $rowCount): string;
+
+    /**
+     * Maximum number of bound parameters one statement may carry. Batched writes
+     * clamp their batch size to this / column-count.
+     */
+    public function maxBindParameters(): int;
+
+    /**
      * Renders a float vector as a literal string bindable as a query parameter.
      */
     public function vectorLiteral(array $vector): string;

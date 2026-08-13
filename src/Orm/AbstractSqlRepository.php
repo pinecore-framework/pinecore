@@ -55,6 +55,63 @@ abstract class AbstractSqlRepository
         return $this->hydrator->hydrate($entity::class, $row);
     }
 
+    /**
+     * Batched upsert. Rows are written with a multi-row
+     * `INSERT … VALUES (…), (…) ON CONFLICT (id) DO UPDATE`, which is an order of
+     * magnitude cheaper than one statement per entity for bulk pipelines.
+     *
+     * Empty ids are generated as in persist(), but — unlike persist() — nothing is
+     * hydrated back, so the generated ids are not visible to the caller. Assign
+     * them yourself beforehand if you need them.
+     *
+     * $batchSize is clamped to the dialect's bind-parameter limit divided by the
+     * column count. Within a single batch, rows sharing an id are collapsed
+     * (last one wins) — Postgres rejects a statement whose ON CONFLICT would
+     * touch the same row twice.
+     *
+     * @param iterable<object> $entities
+     * @return int number of rows written
+     */
+    protected function persistAll(iterable $entities, int $batchSize = 500): int
+    {
+        $entityClass = $this->entityClass();
+        $map         = EntityMap::of($entityClass);
+        $idField     = $map->idField()->field;
+
+        $columns = null;
+        $limit   = 1;
+        $batch   = [];
+        $written = 0;
+
+        foreach ($entities as $entity) {
+            $row = $this->hydrator->dehydrate($entity);
+
+            if (EntityMetadata::isNewId($row[$idField] ?? null)) {
+                $row[$idField] = $this->ids->generate();
+            }
+
+            if ($columns === null) {
+                $columns = array_keys($row);
+                $limit   = $this->batchLimit($batchSize, count($columns));
+            }
+
+            // Keyed by id: collapses duplicates inside the batch, last write wins.
+            $batch[(string) $row[$idField]] = $row;
+
+            if (count($batch) >= $limit) {
+                $written += $this->flushBatch($map->storageName, $columns, $idField, array_values($batch));
+                $batch = [];
+            }
+        }
+
+        if ($batch !== []) {
+            /** @var list<string> $columns */
+            $written += $this->flushBatch($map->storageName, $columns, $idField, array_values($batch));
+        }
+
+        return $written;
+    }
+
     public function findById(string $id): ?object
     {
         $entityClass = $this->entityClass();
@@ -62,7 +119,8 @@ abstract class AbstractSqlRepository
         $idField     = $map->idField()->field;
 
         $sql = sprintf(
-            'SELECT * FROM %s WHERE %s = :id LIMIT 1',
+            'SELECT %s FROM %s WHERE %s = :id LIMIT 1',
+            $this->selectList($map),
             $this->dialect->quoteIdentifier($map->storageName),
             $this->dialect->quoteIdentifier($idField),
         );
@@ -82,7 +140,8 @@ abstract class AbstractSqlRepository
         [$whereSql, $params] = $this->buildWhere($where);
 
         $sql = sprintf(
-            'SELECT * FROM %s %s LIMIT 1',
+            'SELECT %s FROM %s %s LIMIT 1',
+            $this->selectList($map),
             $this->dialect->quoteIdentifier($map->storageName),
             $whereSql,
         );
@@ -129,7 +188,8 @@ abstract class AbstractSqlRepository
         $limit    = max(1, $k);
 
         $sql = sprintf(
-            'SELECT *, %s AS distance FROM %s %s ORDER BY distance LIMIT %d',
+            'SELECT %s, %s AS distance FROM %s %s ORDER BY distance LIMIT %d',
+            $this->selectList($map),
             $distance,
             $this->dialect->quoteIdentifier($map->storageName),
             $whereSql,
@@ -169,10 +229,148 @@ abstract class AbstractSqlRepository
             $stmt->execute($params);
             return $stmt;
         } catch (\PDOException $e) {
-            if ($this->dialect->isConnectionLost($e)) {
-                $this->lifecycle?->requestShutdown();
-            }
+            $this->flagIfConnectionLost($e);
             throw $e;
+        }
+    }
+
+    /**
+     * Runs $fn inside a transaction, keeping the connection-loss guard of
+     * execute(): any failure rolls back and rethrows, and a lost connection also
+     * flags the worker for recycling.
+     *
+     * Nested calls **join** the open transaction instead of opening a second one
+     * (no SAVEPOINT): only the outermost call issues BEGIN/COMMIT, so a failure
+     * anywhere inside rolls the whole unit back. Repositories sharing the PDO
+     * singleton therefore compose into one atomic unit.
+     *
+     * @template T
+     * @param callable():T $fn
+     * @return T
+     */
+    final protected function transactional(callable $fn): mixed
+    {
+        if ($this->pdo->inTransaction()) {
+            return $fn();
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+            $result = $fn();
+            $this->pdo->commit();
+
+            return $result;
+        } catch (\Throwable $e) {
+            $this->rollBackQuietly();
+
+            if ($e instanceof \PDOException) {
+                $this->flagIfConnectionLost($e);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Turns a result row into a typed entity. Lets subclasses map the output of
+     * arbitrary execute() queries — spatial predicates, joins, aggregates —
+     * without reimplementing the mapping or reaching for the hydrator directly.
+     *
+     * @param array<string, mixed> $row
+     * @param ?string $class entity to build; defaults to this repository's #[ForEntity]
+     */
+    final protected function hydrateRow(array $row, ?string $class = null): object
+    {
+        return $this->hydrator->hydrate($class ?? $this->entityClass(), $row);
+    }
+
+    /**
+     * @param iterable<array<string, mixed>> $rows
+     * @return list<object>
+     */
+    final protected function hydrateRows(iterable $rows, ?string $class = null): array
+    {
+        $class  = $class ?? $this->entityClass();
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = $this->hydrator->hydrate($class, $row);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Entity → column map, ready to bind in custom SQL (vectors, JSON and
+     * date/times already converted).
+     *
+     * @return array<string, mixed>
+     */
+    final protected function dehydrateEntity(object $entity): array
+    {
+        return $this->hydrator->dehydrate($entity);
+    }
+
+    /**
+     * Explicit SELECT list for the entity's columns, applying #[Field(readExpr:)]
+     * / #[Geometry] read expressions and aliasing them back to the column name.
+     * Being explicit also decouples hydration from the physical column order and
+     * from columns the entity does not declare.
+     */
+    private function selectList(EntityMetadata $map): string
+    {
+        $parts = [];
+        foreach ($map->sqlFields() as $field) {
+            $quoted = $this->dialect->quoteIdentifier($field->field);
+            // str_replace, not sprintf: expressions may legitimately contain '%'.
+            $parts[] = $field->readExpr === null
+                ? $quoted
+                : str_replace('%s', $quoted, $field->readExpr) . ' AS ' . $quoted;
+        }
+
+        return $parts === [] ? '*' : implode(', ', $parts);
+    }
+
+    /**
+     * @param list<string>              $columns
+     * @param list<array<string, mixed>> $rows
+     */
+    private function flushBatch(string $table, array $columns, string $idColumn, array $rows): int
+    {
+        $params = [];
+        foreach ($rows as $i => $row) {
+            foreach ($columns as $column) {
+                $params["r{$i}_{$column}"] = $row[$column] ?? null;
+            }
+        }
+
+        $sql = $this->dialect->upsertMany($table, $columns, $idColumn, count($rows));
+
+        return $this->execute($sql, $params)->rowCount();
+    }
+
+    private function batchLimit(int $batchSize, int $columnCount): int
+    {
+        $ceiling = intdiv($this->dialect->maxBindParameters(), max(1, $columnCount));
+
+        return max(1, min($batchSize, $ceiling));
+    }
+
+    private function rollBackQuietly(): void
+    {
+        try {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+        } catch (\PDOException) {
+            // The connection is already gone; the original failure is the one
+            // worth propagating, so this rollback attempt stays silent.
+        }
+    }
+
+    private function flagIfConnectionLost(\PDOException $e): void
+    {
+        if ($this->dialect->isConnectionLost($e)) {
+            $this->lifecycle?->requestShutdown();
         }
     }
 
