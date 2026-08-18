@@ -66,7 +66,7 @@ final class PgMigrator
 
             return $plan;
         } finally {
-            $this->pdo->query('SELECT pg_advisory_unlock(' . self::LOCK_KEY . ')');
+            $this->unlockQuietly();
         }
     }
 
@@ -151,6 +151,17 @@ final class PgMigrator
             $this->pdo->rollBack();
         } catch (\Throwable) {
             // rollBack() failing (dead connection) must not mask the original error.
+        }
+    }
+
+    private function unlockQuietly(): void
+    {
+        try {
+            $this->pdo->query('SELECT pg_advisory_unlock(' . self::LOCK_KEY . ')');
+        } catch (\Throwable) {
+            // A throw from finally would replace the in-flight exception, hiding the
+            // real failure. Advisory locks are session-scoped, so if the connection
+            // is dead the server has already released the lock anyway.
         }
     }
 }

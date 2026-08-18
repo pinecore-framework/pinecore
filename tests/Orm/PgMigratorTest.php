@@ -163,6 +163,24 @@ final class PgMigratorTest extends TestCase
     }
 
     #[Test]
+    public function failedUnlockDoesNotMaskTheMigrationError(): void
+    {
+        // Connection died mid-migration: exec() fails AND the unlock in finally
+        // fails too. The caller must still see the migration error, not the
+        // unlock's PDOException (a throw from finally replaces the in-flight one).
+        $this->write('20250101000000_first.sql', 'CREATE TABLE broken;');
+        $this->pdo->failOnSql   = 'CREATE TABLE broken';
+        $this->pdo->failOnQuery = 'pg_advisory_unlock';
+
+        try {
+            $this->migrator->migrate($this->dir);
+            self::fail('expected the failing migration to abort the run');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Migration 20250101000000_first failed', $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function noTransactionDirectiveRunsTheMigrationOutsideATransaction(): void
     {
         $this->write(

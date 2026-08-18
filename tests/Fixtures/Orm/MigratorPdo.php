@@ -27,6 +27,9 @@ final class MigratorPdo extends PDO
     /** Substring of migration SQL that makes exec() throw. */
     public ?string $failOnSql = null;
 
+    /** Substring that makes query() throw (e.g. unlock on a dead connection). */
+    public ?string $failOnQuery = null;
+
     public function __construct()
     {
         // Intentionally skip parent constructor — no real connection.
@@ -48,6 +51,10 @@ final class MigratorPdo extends PDO
 
     public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
     {
+        if ($this->failOnQuery !== null && str_contains($query, $this->failOnQuery)) {
+            throw new PDOException('server closed the connection unexpectedly');
+        }
+
         $this->log[] = ['query', $query];
 
         if (str_contains($query, 'to_regclass')) {
