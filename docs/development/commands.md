@@ -24,6 +24,16 @@ php bin/console <command> [options]
 
 Команды регистрируются в контейнере как сервисы с тегом (см. `architecture/console.md`).
 
+Команды, поставляемые фреймворком (приложение регистрирует их в своём console-конфиге):
+
+| Команда | Описание |
+|---|---|
+| `pg:migrate [--dry-run]` | Применить SQL-миграции из `orm.migrations_path` (см. `architecture/migrations.md`) |
+| `pg:ensure-indexes [--dry-run]` | Раскатать индексы PostgreSQL из атрибутов сущностей |
+| `mongo:ensure-indexes` | Раскатать индексы MongoDB из атрибутов сущностей |
+
+Порядок деплоя: `pg:migrate` → `pg:ensure-indexes`.
+
 ---
 
 ## Composer

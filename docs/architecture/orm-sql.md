@@ -390,9 +390,13 @@ final class ReadinessController
 
 ## Схема и расширение
 
-DDL пишется вручную (механизма миграций во фреймворке нет; индексы — через `pg:ensure-indexes`):
+DDL (таблицы, колонки, `CREATE EXTENSION`) живёт в raw-SQL миграциях и применяется командой
+`pg:migrate` — см. [`migrations.md`](migrations.md). Индексы остаются декларативными в атрибутах
+сущностей и раскатываются `pg:ensure-indexes`. Порядок деплоя: сначала `pg:migrate`,
+затем `pg:ensure-indexes`.
 
 ```sql
+-- migrations/20250810120000_create_documents.sql
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;   -- если используете #[Geometry]
 

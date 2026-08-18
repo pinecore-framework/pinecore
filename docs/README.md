@@ -14,6 +14,7 @@
 | Логирование | [`architecture/logging.md`](architecture/logging.md) |
 | ORM (MongoDB) | [`architecture/orm.md`](architecture/orm.md) |
 | ORM (SQL / PostgreSQL + pgvector) | [`architecture/orm-sql.md`](architecture/orm-sql.md) |
+| Миграции PostgreSQL (`pg:migrate`) | [`architecture/migrations.md`](architecture/migrations.md) |
 | Console-команды | [`architecture/console.md`](architecture/console.md) |
 
 ## Разработка

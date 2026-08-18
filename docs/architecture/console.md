@@ -116,6 +116,8 @@ return [
 | Сигнатура | Хендлер | Описание |
 |---|---|---|
 | `mongo:ensure-indexes` | `Pinecore\Pinecore\Orm\Console\EnsureIndexesCommand` | Раскатывает `#[Index]` атрибуты в MongoDB. См. `architecture/orm.md`. |
+| `pg:ensure-indexes` | `Pinecore\Pinecore\Orm\Console\PgEnsureIndexesCommand` | Раскатывает атрибуты индексов в PostgreSQL. См. `architecture/orm-sql.md`. |
+| `pg:migrate` | `Pinecore\Pinecore\Orm\Console\PgMigrateCommand` | Применяет SQL-миграции из `orm.migrations_path`. См. `architecture/migrations.md`. |
 
 Регистрируются приложением в его console-конфиге наравне со своими командами — фреймворк сам ничего не регистрирует.
 

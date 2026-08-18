@@ -30,6 +30,7 @@ Full index: [docs/README.md](docs/README.md)
 - [Logging](docs/architecture/logging.md)
 - [ORM: MongoDB, entities, repositories](docs/architecture/orm.md)
 - [ORM: SQL / PostgreSQL + pgvector](docs/architecture/orm-sql.md)
+- [Миграции PostgreSQL: pg:migrate](docs/architecture/migrations.md)
 - [Console](docs/architecture/console.md)
 
 ## Code Style
