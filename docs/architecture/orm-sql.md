@@ -14,6 +14,7 @@ SQL-ветка ORM, параллельная Mongo-ветке ([`orm.md`](orm.md
 | `#[Field(readExpr: 'expr(%s)')]` | колонка, обёрнутая SQL-выражением при чтении (см. [«Выражения на чтение»](#выражения-на-чтение)) |
 | `#[Geometry(srid: 4326, type: 'Point')]` | `geometry(...)` (PostGIS): `ST_AsEWKT` при чтении + GiST-индекс |
 | `#[Vector(dim: N, metric: 'cosine')]` | `vector(N)` (pgvector); под ANN-индекс |
+| `#[PgArray]` | `text[]`; `list<string>` ↔ литерал `{"a","b"}` (см. [«Массивы»](#массивы-postgresql-pgarray)) |
 | `#[Json]` | `jsonb` (значение кодируется/декодируется автоматически) |
 | `#[Index]` | B-tree/partial индекс на колонке; `using:` задаёт метод (`gist`, `gin`, …) |
 | `#[CompositeIndex]` (на классе) | составной/составной уникальный индекс |
@@ -83,6 +84,7 @@ final class DocumentRepository extends AbstractSqlRepository
 | `hydrateRows(iterable $rows, ?string $class = null): list` | `final` — набор строк → список сущностей |
 | `dehydrateEntity(object): array` | `final` — сущность → колонки, готовые к bind |
 | `bindable(mixed): mixed` | `final` — привести одиночное значение к bind-форме (для своего SQL) |
+| `arrayLiteral(array): string` | `final` — `list<string>` → `text[]`-литерал для своего containment-SQL |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |
 
 `findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findNearest` принимают только equality-фильтры; query-builder'а во фреймворке нет.
@@ -207,10 +209,57 @@ final class Place implements SqlEntity
 
 **Запись выражения не требует.** EWKT-строка (`SRID=4326;POINT(37.6 55.7)`) биндится обычным параметром — PostgreSQL сам применяет входную функцию типа колонки, так что `persist()` кладёт и точку, и полигон без доработок. Ломается только **чтение**: без `readExpr` в `string`-свойство приезжает HEXEWKB (`0101000020E6100000…`), а не WKT.
 
+### Массивы PostgreSQL (`#[PgArray]`)
+
+`#[PgArray]` маппит `list<string>`-свойство на колонку `text[]` — под GIN-индекс и containment-операторы (`@>`, `&&`). Postgres-only, как `#[Vector]`/`#[Geometry]`.
+
+```php
+#[Table(name: 'objects')]
+final class ObjectRow implements SqlEntity
+{
+    public function __construct(
+        #[Id]                             public readonly string $id,
+        #[PgArray] #[Index(using: 'gin')] public readonly array  $labels = [],
+    ) {}
+}
+```
+
+```sql
+CREATE TABLE objects (
+    id     text PRIMARY KEY,
+    labels text[] NOT NULL DEFAULT '{}'
+);
+```
+
+- **Запись**: `list<string>` → литерал `{"a","b"}` одним bind-параметром (`SqlDialect::arrayLiteral()`); input-функция `text[]` принимает его как есть — так же, как vector/geometry. Каждый элемент всегда в двойных кавычках, `\` и `"` экранируются; пустой массив → `{}`.
+- **Чтение**: `pdo_pgsql` отдаёт колонку строкой в output-формате (`{a,"b,c"}`); `SqlHydrator` парсит её обратно в `list<string>` — включая элементы с запятыми, кавычками, фигурными скобками, пробелами, юникодом и пустой строкой.
+- `name:` — имя колонки, как у `#[Field]`; `#[Index(using: 'gin')]` на том же свойстве попадает в план `pg:ensure-indexes` (`USING gin (col)`).
+
+**Ограничения (сознательные):**
+
+- только текстовые элементы (`text[]`): не-строка → `InvalidArgumentException`, коэрсии нет;
+- **NULL-элементы запрещены** в обе стороны: `null` в массиве при записи и голый токен `NULL` при чтении → `InvalidArgumentException`. Семантика меток не про null, а молчаливый `NULL` внутри массива — источник тихих багов;
+- многомерные массивы вне скоупа: вложенная `{` при чтении → понятное исключение.
+
+**Фильтров по массиву нет.** `findOneWhere(['labels' => [...]])` не поддержан — PHP-массив в `$where` бросает `InvalidArgumentException` (см. готчи). Containment-запросы пишутся своим SQL:
+
+```php
+/** @return list<ObjectRow> */
+public function withAnyLabel(array $labels): array
+{
+    return $this->hydrateRows(
+        $this->execute(
+            'SELECT ' /* … */ . ' FROM objects WHERE labels && :labels',
+            ['labels' => $this->arrayLiteral($labels)],   // protected-хелпер AbstractSqlRepository
+        )->fetchAll(PDO::FETCH_ASSOC),
+    );
+}
+```
+
 ## SqlHydrator (`src/Orm/SqlHydrator.php`)
 
-- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]`, `json_decode` для `#[Json]`, оборачивает `timestamptz` в `DateTimeImmutable` и **приводит скалярные колонки к объявленному типу** (см. ниже).
-- `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал через `SqlDialect`, `#[Json]` → `json_encode`, `DateTimeInterface` → строка.
+- `hydrate(string $class, array $row): object` — строка БД → typed entity; парсит vector-литерал `'[..]'` в `float[]` и `text[]`-литерал `'{..}'` в `list<string>` для `#[PgArray]`, `json_decode` для `#[Json]`, оборачивает `timestamptz` в `DateTimeImmutable` и **приводит скалярные колонки к объявленному типу** (см. ниже).
+- `dehydrate(object $entity): array` — entity → ассоциатив для bind; `float[]` → vector-литерал и `#[PgArray]` → `text[]`-литерал через `SqlDialect`, `#[Json]` → `json_encode`, `DateTimeInterface` → строка.
 
 ### Скалярные типы
 
@@ -238,6 +287,7 @@ final class Place implements SqlEntity
 |---|---|
 | `bool` | `SqlDialect::boolLiteral()` — `'t'`/`'f'` у Postgres |
 | `DateTimeInterface` | UTC, `DATE_ATOM` |
+| `array` | **`InvalidArgumentException`** — PDO превратил бы его в бесполезную строку `'Array'`; массивы кодируются явно (`arrayLiteral()`), а equality-фильтров по массивам нет |
 | всё остальное | без изменений |
 
 Конверсия **value-driven** (`is_bool($value)`), а не по объявленному типу, так что срабатывает и на `mixed`-свойстве. `null` не трогается и доезжает как SQL `NULL`.
@@ -278,6 +328,7 @@ public function countActive(bool $active): int
 | `upsertMany(table, columns, idColumn, rowCount)` | то же на `rowCount` строк; плейсхолдеры `:r{i}_{col}` |
 | `maxBindParameters()` | `65535` — потолок пачки в `persistAll()` |
 | `vectorLiteral(array)` | `'[0.1,0.2,…]'` |
+| `arrayLiteral(array)` | `'{"a","b"}'` — `text[]`; null/не-строка в элементах → `InvalidArgumentException` |
 | `boolLiteral(bool)` | `'t'` / `'f'` |
 | `vectorDistance(column, param, metric)` | `cosine → <=>`, `l2 → <->`, `ip → <#>` |
 
@@ -421,6 +472,7 @@ CREATE TABLE documents (
 - **`pdo_pgsql` отдаёт всё строками.** При `ATTR_EMULATE_PREPARES=false` числа приходят строками, а `bool` — как `'t'`/`'f'`. `SqlHydrator` приводит скаляры по объявленному типу свойства; не объявляйте флаг как `string` (получите `'t'`/`'f'` вместо `bool`) — типизируйте `bool`/`int`/`float`.
 - **Readiness в обход guard.** `/ready`, который пингует `PDO` напрямую, не ресайклит воркер при обрыве коннекта (вечный 503 при `max_requests=0`). Пингуйте через `SqlHealthCheck::isHealthy()`.
 - **TTL отсутствует.** В Mongo `expireAfterSeconds` чистит документы сам; в SQL это ваша cron-команда.
+- **По `#[PgArray]`-колонке нет equality-фильтров.** Containment (`labels @> '{"a"}'`, `labels && …`) — это свой SQL через `execute()` + `$this->arrayLiteral(...)`. PHP-массив в `$where` (`findOneWhere`, `findNearest`) бросает `InvalidArgumentException` — раньше PDO молча биндил бы строку `'Array'` и фильтр «загадочно» ничего не находил.
 - **Геометрия: пишется как есть, читается — нет.** EWKT-строка биндится обычным параметром, `persist()` работает без доработок. А вот на чтении PostGIS отдаёт **HEXEWKB** (`0101000020E6100000…`), и в `string`-свойство приезжает hex вместо WKT. Лечится `#[Geometry]` (или `#[Field(readExpr: 'ST_AsEWKT(%s)')]`) — иначе получите молча «испорченные» координаты.
 - **Явный список колонок сменил режим отказа.** Раньше чтение шло `SELECT *`, и поле сущности, под которое ещё нет колонки, молча подхватывало дефолт конструктора. Теперь такая колонка попадает в `SELECT` и запрос падает с `column … does not exist`. Это заметнее и правильнее, но если вы добавляли поля в сущность до миграции — сначала миграция.
 - **`readExpr` — это сырой SQL.** Выражение подставляется в `SELECT` без экранирования (квотируется только имя колонки). Оно приходит из атрибута в вашем коде, не из ввода, но не собирайте его динамически из внешних данных.

@@ -238,6 +238,11 @@ final class TinyLimitDialect implements \Pinecore\Pinecore\Orm\Sql\SqlDialect
         return $this->pg->vectorLiteral($vector);
     }
 
+    public function arrayLiteral(array $items): string
+    {
+        return $this->pg->arrayLiteral($items);
+    }
+
     public function boolLiteral(bool $value): string
     {
         return $this->pg->boolLiteral($value);

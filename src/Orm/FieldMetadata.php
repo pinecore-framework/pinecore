@@ -18,6 +18,7 @@ final class FieldMetadata
         public readonly bool $hasConstructorDefault,
         public readonly bool $isJson = false,
         public readonly bool $isVector = false,
+        public readonly bool $isPgArray = false,
         public readonly int $vectorDim = 0,
         public readonly string $vectorMetric = 'cosine',
         /** SQL expression wrapping the column on SELECT; `%s` = quoted column name. */

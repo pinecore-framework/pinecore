@@ -13,6 +13,7 @@ use Pinecore\Pinecore\Orm\Attributes\Geometry;
 use Pinecore\Pinecore\Orm\Attributes\Id;
 use Pinecore\Pinecore\Orm\Attributes\Index;
 use Pinecore\Pinecore\Orm\Attributes\Json;
+use Pinecore\Pinecore\Orm\Attributes\PgArray;
 use Pinecore\Pinecore\Orm\Attributes\Table;
 use Pinecore\Pinecore\Orm\Attributes\Vector;
 use ReflectionClass;
@@ -166,12 +167,13 @@ final class EntityMap
         $geometryAttrs = $property->getAttributes(Geometry::class);
         $jsonAttrs = $property->getAttributes(Json::class);
         $vectorAttrs = $property->getAttributes(Vector::class);
+        $pgArrayAttrs = $property->getAttributes(PgArray::class);
         $embeddedAttrs = $property->getAttributes(Embedded::class);
         $embeddedListAttrs = $property->getAttributes(EmbeddedList::class);
 
         if (
             empty($idAttrs) && empty($fieldAttrs) && empty($geometryAttrs) && empty($jsonAttrs)
-            && empty($vectorAttrs) && empty($embeddedAttrs) && empty($embeddedListAttrs)
+            && empty($vectorAttrs) && empty($pgArrayAttrs) && empty($embeddedAttrs) && empty($embeddedListAttrs)
         ) {
             return null;
         }
@@ -265,6 +267,23 @@ final class EntityMap
                 isVector: true,
                 vectorDim: $vector->dim,
                 vectorMetric: $vector->metric,
+            );
+        }
+
+        if (!empty($pgArrayAttrs)) {
+            /** @var PgArray $pgArray */
+            $pgArray = $pgArrayAttrs[0]->newInstance();
+            return new FieldMetadata(
+                property: $property,
+                field: $pgArray->name ?? $property->getName(),
+                isId: false,
+                type: self::typeName($property),
+                isEmbedded: false,
+                isEmbeddedList: false,
+                embeddedClass: null,
+                isNullable: $isNullable,
+                hasConstructorDefault: $hasDefault,
+                isPgArray: true,
             );
         }
 

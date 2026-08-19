@@ -79,6 +79,27 @@ final class PostgresDialect implements SqlDialect
         return '[' . implode(',', array_map(static fn($v): float => (float) $v, $vector)) . ']';
     }
 
+    public function arrayLiteral(array $items): string
+    {
+        $encoded = [];
+        foreach ($items as $item) {
+            if ($item === null) {
+                throw new \InvalidArgumentException(
+                    'text[] elements must not be null; drop the element instead of storing NULL inside the array'
+                );
+            }
+            if (!is_string($item)) {
+                throw new \InvalidArgumentException(
+                    'text[] elements must be strings, got ' . get_debug_type($item)
+                );
+            }
+            // Always quoted, so only backslash and the quote itself need escaping.
+            $encoded[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $item) . '"';
+        }
+
+        return '{' . implode(',', $encoded) . '}';
+    }
+
     public function boolLiteral(bool $value): string
     {
         return $value ? 't' : 'f';

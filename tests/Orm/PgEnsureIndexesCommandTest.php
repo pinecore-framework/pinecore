@@ -16,6 +16,7 @@ use Tests\Pinecore\Pinecore\Fixtures\Orm\BadIndexMethodEntity;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\GeoPlace;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\IndexedEntity;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\LabeledRow;
 
 /**
  * DDL generation only — no server is touched. The Mongo entity in the config is
@@ -38,6 +39,15 @@ final class PgEnsureIndexesCommandTest extends TestCase
         self::assertContains(
             'CREATE INDEX IF NOT EXISTS "idx_places_bbox" ON "places" USING gist ("bbox")',
             $this->statementsFor(GeoPlace::class),
+        );
+    }
+
+    #[Test]
+    public function pgArrayColumnGetsItsGinIndex(): void
+    {
+        self::assertSame(
+            ['CREATE INDEX IF NOT EXISTS "idx_labeled_rows_labels" ON "labeled_rows" USING gin ("labels")'],
+            $this->statementsFor(LabeledRow::class),
         );
     }
 

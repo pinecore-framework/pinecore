@@ -6,8 +6,9 @@ use Pinecore\Pinecore\Orm\Sql\SqlDialect;
 
 /**
  * Converts SQL rows to typed entities and back. Mirrors MongoHydrator, but the
- * two storage-specific conversions are vectors (float[] <-> dialect literal) and
- * JSON columns (PHP value <-> encoded string). Plain columns pass through.
+ * storage-specific conversions are vectors (float[] <-> dialect literal),
+ * text[] arrays (list<string> <-> dialect literal) and JSON columns (PHP value
+ * <-> encoded string). Plain columns pass through.
  */
 final class SqlHydrator
 {
@@ -45,6 +46,8 @@ final class SqlHydrator
             if ($value !== null) {
                 if ($field->isVector) {
                     $value = $this->parseVector($value);
+                } elseif ($field->isPgArray) {
+                    $value = is_array($value) ? $value : $this->parsePgArray((string) $value, $field->field);
                 } elseif ($field->isJson) {
                     $value = is_string($value) ? json_decode($value, true) : $value;
                 } elseif ($this->isDateTime($field)) {
@@ -75,6 +78,8 @@ final class SqlHydrator
             if ($value !== null) {
                 if ($field->isVector) {
                     $value = $this->dialect->vectorLiteral($value);
+                } elseif ($field->isPgArray) {
+                    $value = $this->dialect->arrayLiteral($value);
                 } elseif ($field->isJson) {
                     $value = json_encode($value);
                 } else {
@@ -101,6 +106,17 @@ final class SqlHydrator
      */
     public function toBindable(mixed $value): mixed
     {
+        // PDO would cast an array to the useless string 'Array' (with a notice);
+        // rejecting it here turns a mysterious non-match into an explicit error.
+        // Equality on array columns is not supported anyway — containment (@>,
+        // &&) is hand-written SQL via execute() with SqlDialect::arrayLiteral().
+        if (is_array($value)) {
+            throw new \InvalidArgumentException(
+                'Cannot bind a PHP array as an SQL parameter; equality filters on array columns are not supported'
+                . ' — write containment SQL via execute() and encode the value with SqlDialect::arrayLiteral()'
+            );
+        }
+
         if ($value instanceof \DateTimeInterface) {
             return \DateTimeImmutable::createFromInterface($value)
                 ->setTimezone(new \DateTimeZone('UTC'))
@@ -130,6 +146,99 @@ final class SqlHydrator
         }
 
         return array_map(static fn(string $v): float => (float) $v, explode(',', $trimmed));
+    }
+
+    /**
+     * Parses the pdo_pgsql output format of a text[] column ('{"a","b"}').
+     *
+     * Postgres quotes every element that contains a delimiter, quote, brace,
+     * backslash or whitespace (and the empty string), so an unquoted token never
+     * contains structure characters. A bare NULL token is rejected: this ORM
+     * never writes NULL elements (see SqlDialect::arrayLiteral()), so finding
+     * one means the row was written outside the entity contract — surfacing it
+     * beats silently hydrating a null into a list<string>. Multidimensional
+     * arrays are out of scope and rejected explicitly.
+     *
+     * @return list<string>
+     */
+    private function parsePgArray(string $value, string $column): array
+    {
+        $len = strlen($value);
+        if ($len < 2 || $value[0] !== '{' || $value[$len - 1] !== '}') {
+            throw new \InvalidArgumentException(
+                "Malformed text[] literal in column '{$column}': '{$value}'"
+            );
+        }
+        if ($len === 2) {
+            return [];
+        }
+
+        $items = [];
+        $i     = 1;
+        $end   = $len - 1;
+
+        while ($i < $end) {
+            if ($value[$i] === '{') {
+                throw new \InvalidArgumentException(
+                    "Multidimensional arrays are not supported by #[PgArray] (column '{$column}')"
+                );
+            }
+
+            if ($value[$i] === '"') {
+                $item = '';
+                $i++;
+                while ($i < $end && $value[$i] !== '"') {
+                    if ($value[$i] === '\\') {
+                        $i++;
+                        if ($i >= $end) {
+                            break;
+                        }
+                    }
+                    $item .= $value[$i];
+                    $i++;
+                }
+                if ($i >= $end) {
+                    throw new \InvalidArgumentException(
+                        "Malformed text[] literal in column '{$column}': unterminated quoted element"
+                    );
+                }
+                $i++; // closing quote
+                $items[] = $item;
+            } else {
+                $token = '';
+                while ($i < $end && $value[$i] !== ',') {
+                    $token .= $value[$i];
+                    $i++;
+                }
+                if ($token === '') {
+                    throw new \InvalidArgumentException(
+                        "Malformed text[] literal in column '{$column}': empty unquoted element"
+                    );
+                }
+                if (strcasecmp($token, 'NULL') === 0) {
+                    throw new \InvalidArgumentException(
+                        "NULL element in text[] column '{$column}'; #[PgArray] does not allow null elements"
+                    );
+                }
+                $items[] = $token;
+            }
+
+            if ($i < $end) {
+                if ($value[$i] !== ',') {
+                    throw new \InvalidArgumentException(
+                        "Malformed text[] literal in column '{$column}': expected ',' at offset {$i}"
+                    );
+                }
+                $i++;
+                if ($i >= $end) {
+                    throw new \InvalidArgumentException(
+                        "Malformed text[] literal in column '{$column}': trailing comma"
+                    );
+                }
+            }
+        }
+
+        return $items;
     }
 
     /**

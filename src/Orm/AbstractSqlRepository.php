@@ -322,6 +322,19 @@ abstract class AbstractSqlRepository
     }
 
     /**
+     * Encodes a list<string> as the dialect's array literal for binding in
+     * custom SQL — containment queries (@>, &&) against a #[PgArray] column.
+     * bindable() deliberately rejects arrays, and the dialect is not exposed to
+     * subclasses, so this is the supported route.
+     *
+     * @param list<string> $items
+     */
+    final protected function arrayLiteral(array $items): string
+    {
+        return $this->dialect->arrayLiteral($items);
+    }
+
+    /**
      * Explicit SELECT list for the entity's columns, applying #[Field(readExpr:)]
      * / #[Geometry] read expressions and aliasing them back to the column name.
      * Being explicit also decouples hydration from the physical column order and

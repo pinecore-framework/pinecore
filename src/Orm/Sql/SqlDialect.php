@@ -39,6 +39,13 @@ interface SqlDialect
     public function vectorLiteral(array $vector): string;
 
     /**
+     * Renders a list<string> as a text[] literal ('{"a","b"}') bindable as a
+     * query parameter. Elements must be strings: null and non-string elements
+     * throw InvalidArgumentException instead of being coerced.
+     */
+    public function arrayLiteral(array $items): string;
+
+    /**
      * Renders a PHP bool as a literal string bindable as a query parameter.
      * PDO binds array-style execute() parameters as strings, and `false` casts to
      * '' — which no boolean column accepts — so the value has to be spelled out
