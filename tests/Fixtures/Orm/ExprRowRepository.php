@@ -18,6 +18,12 @@ final class ExprRowRepository extends AbstractSqlRepository
         return $this->findById($id);
     }
 
+    /** @return list<ExprRow> */
+    public function allOrderedById(): array
+    {
+        return $this->findManyWhere([], ['id' => 'asc']);
+    }
+
     public function byLabel(string $label): ?ExprRow
     {
         return $this->findOneWhere(['label' => $label]);

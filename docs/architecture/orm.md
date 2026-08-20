@@ -65,6 +65,7 @@ final class UserRepository extends AbstractMongoRepository
 | `persist(object $entity): object` | upsert по полю `id`; если `id === ''`, генерирует новый |
 | `findById(string $id): ?object` | поиск по полю `id` |
 | `findOneWhere(array $filter): ?object` | произвольный MongoDB filter |
+| `findManyWhere(array $filter, array $orderBy = [], ?int $limit = null, ?int $offset = null): list` | список по произвольному filter; `$orderBy` ⇒ `sort` (ключ — имя поля документа или свойства, `asc`/`desc` ⇒ `1`/`-1`), `$limit` ⇒ `limit`, `$offset` ⇒ `skip`; `[]` если пусто. Неизвестный ключ/направление ⇒ `InvalidArgumentException`; отрицательные `$limit`/`$offset` ⇒ исключение, `$limit === 0` ⇒ `[]` без запроса (для драйвера `limit: 0` значит «без лимита»). `$filter === []` — вся коллекция |
 | `delete(string $id): void` | deleteOne по полю `id` |
 | `collection(string $entityClass): Collection` | MongoDB\Collection для entity |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |

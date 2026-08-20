@@ -17,4 +17,14 @@ final class SimpleUserRepository extends AbstractMongoRepository
     {
         return $this->findById($id);
     }
+
+    /**
+     * @param array<string, mixed>  $filter
+     * @param array<string, string> $orderBy
+     * @return list<SimpleUser>
+     */
+    public function listWhere(array $filter, array $orderBy = [], ?int $limit = null, ?int $offset = null): array
+    {
+        return $this->findManyWhere($filter, $orderBy, $limit, $offset);
+    }
 }

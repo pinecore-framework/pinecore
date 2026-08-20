@@ -24,6 +24,16 @@ final class LinkRowRepository extends AbstractSqlRepository
         return $this->findById($id);
     }
 
+    /**
+     * @param array<string, mixed>  $where
+     * @param array<string, string> $orderBy
+     * @return list<LinkRow>
+     */
+    public function listWhere(array $where, array $orderBy = [], ?int $limit = null, ?int $offset = null): array
+    {
+        return $this->findManyWhere($where, $orderBy, $limit, $offset);
+    }
+
     public function remove(string $id): void
     {
         $this->delete($id);

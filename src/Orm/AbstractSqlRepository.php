@@ -151,6 +151,56 @@ abstract class AbstractSqlRepository
         return $row ? $this->hydrator->hydrate($entityClass, $row) : null;
     }
 
+    /**
+     * List query: same equality filter as findOneWhere(), plus ordering and a
+     * window. `$where === []` is legal and means the whole table — a full scan,
+     * so pair it with $limit unless the table is known to be small.
+     *
+     * $orderBy keys are resolved against the entity's metadata and accept either
+     * a column name or a property name (`created_at` or `createdAt`); anything
+     * else is rejected — keys are never spliced into SQL verbatim. Directions
+     * are `asc`/`desc`, case-insensitive. Array order is ORDER BY order.
+     *
+     * $limit/$offset are emitted as integer literals (pdo_pgsql does not type a
+     * bound LIMIT parameter reliably). Negative values are rejected; `$limit === 0`
+     * returns [] without querying. $offset without $limit emits a bare `OFFSET n`
+     * (valid in Postgres; SQLite needs a LIMIT in front — Postgres-first, as the rest).
+     *
+     * @param array<string, mixed>  $where   equality clauses ANDed together (null → IS NULL)
+     * @param array<string, string> $orderBy column/property => 'asc'|'desc'
+     * @return list<object>
+     */
+    protected function findManyWhere(array $where, array $orderBy = [], ?int $limit = null, ?int $offset = null): array
+    {
+        if ($limit !== null && $limit < 0) {
+            throw new \InvalidArgumentException("findManyWhere(): \$limit must be >= 0, got {$limit}");
+        }
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException("findManyWhere(): \$offset must be >= 0, got {$offset}");
+        }
+
+        $entityClass         = $this->entityClass();
+        $map                 = EntityMap::of($entityClass);
+        [$whereSql, $params] = $this->buildWhere($where);
+        $orderSql            = $this->buildOrderBy($map, $orderBy);
+
+        if ($limit === 0) {
+            return [];
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM %s%s%s%s%s',
+            $this->selectList($map),
+            $this->dialect->quoteIdentifier($map->storageName),
+            $whereSql === '' ? '' : ' ' . $whereSql,
+            $orderSql === '' ? '' : ' ' . $orderSql,
+            $limit === null ? '' : sprintf(' LIMIT %d', $limit),
+            $offset === null ? '' : sprintf(' OFFSET %d', $offset),
+        );
+
+        return $this->hydrateRows($this->execute($sql, $params)->fetchAll(PDO::FETCH_ASSOC), $entityClass);
+    }
+
     public function delete(string $id): void
     {
         $entityClass = $this->entityClass();
@@ -217,7 +267,7 @@ abstract class AbstractSqlRepository
      * original PDOException is always rethrown for the caller/dispatcher to handle.
      *
      * Use this from subclasses for custom SQL beyond findById/findOneWhere/
-     * findNearest — it keeps the connection-loss guard, so a repository never
+     * findManyWhere/findNearest — it keeps the connection-loss guard, so a repository never
      * needs its own PDO (which would bypass the recycle behaviour).
      *
      * @param array<string, mixed> $params
@@ -412,7 +462,45 @@ abstract class AbstractSqlRepository
     }
 
     /**
-     * Builds the equality filter shared by findOneWhere() and findNearest().
+     * `ORDER BY "col" ASC, …` for findManyWhere(). Every key must resolve to a
+     * declared SQL column (by column or property name) and every direction must
+     * be asc/desc — the only thing that reaches the SQL string is the quoted
+     * column name, never the caller's input.
+     *
+     * @param array<string, string> $orderBy
+     */
+    private function buildOrderBy(EntityMetadata $map, array $orderBy): string
+    {
+        if ($orderBy === []) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($orderBy as $key => $direction) {
+            $field = $map->fieldFor((string) $key);
+            if ($field === null || !$field->isSqlColumn()) {
+                throw new \InvalidArgumentException(
+                    "findManyWhere(): unknown order-by key '{$key}' — use a column or property name declared on "
+                    . $this->entityClass()
+                );
+            }
+
+            $dir = strtolower((string) $direction);
+            if ($dir !== 'asc' && $dir !== 'desc') {
+                throw new \InvalidArgumentException(
+                    "findManyWhere(): order direction for '{$key}' must be 'asc' or 'desc', got '{$direction}'"
+                );
+            }
+
+            $parts[] = $this->dialect->quoteIdentifier($field->field) . ' ' . strtoupper($dir);
+        }
+
+        return 'ORDER BY ' . implode(', ', $parts);
+    }
+
+    /**
+     * Builds the equality filter shared by findOneWhere(), findManyWhere() and
+     * findNearest().
      *
      * `null` becomes `IS NULL` rather than `= :param`: SQL's three-valued logic
      * makes `col = NULL` never true, so binding it would quietly match nothing.

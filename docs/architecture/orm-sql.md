@@ -77,6 +77,7 @@ final class DocumentRepository extends AbstractSqlRepository
 | `persistAll(iterable $entities, int $batchSize = 500): int` | пакетный upsert одним multi-row `INSERT`; возвращает число записанных строк |
 | `findById(string): ?object` | поиск по `id` |
 | `findOneWhere(array): ?object` | equality-фильтр (колонка ⇒ значение), ANDed; `null` ⇒ `IS NULL` |
+| `findManyWhere(array $where, array $orderBy = [], ?int $limit = null, ?int $offset = null): list` | список по тому же equality-фильтру + `ORDER BY`/`LIMIT`/`OFFSET`; пустой результат ⇒ `[]` (см. [«Списки»](#списки-findmanywhere)) |
 | `delete(string): void` | удаление по `id` |
 | `findNearest(string $vectorField, array $vector, int $k, array $where = []): list` | kNN-поиск; возвращает `{entity, distance}` (меньше = ближе) |
 | `execute(string $sql, array $params = []): PDOStatement` | выполнить произвольный SQL с connection-loss guard |
@@ -88,11 +89,11 @@ final class DocumentRepository extends AbstractSqlRepository
 | `arrayLiteral(array): string` | `final` — `list<string>` → `text[]`-литерал для своего containment-SQL |
 | `entityClass(): string` | читает `#[ForEntity]`, кешируется статически |
 
-`findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findNearest` принимают только equality-фильтры; query-builder'а во фреймворке нет.
+`findNearest` берёт метрику из `#[Vector]->metric` соответствующей колонки и подставляет оператор расстояния через диалект — он **обязан совпадать** с opclass ANN-индекса (иначе seq scan). `findOneWhere`/`findManyWhere`/`findNearest` принимают только equality-фильтры; query-builder'а во фреймворке нет.
 
 ### Фильтры (`$where`)
 
-`findOneWhere()` и `findNearest(..., $where)` собирают условия одним билдером, ANDed:
+`findOneWhere()`, `findManyWhere()` и `findNearest(..., $where)` собирают условия одним билдером, ANDed:
 
 ```php
 $this->findOneWhere(['tenant_id' => $tenant, 'active' => false, 'deleted_at' => null]);
@@ -102,6 +103,28 @@ $this->findOneWhere(['tenant_id' => $tenant, 'active' => false, 'deleted_at' => 
 - **`null` разворачивается в `IS NULL`**, а не в `= :param`. В SQL `col = NULL` не истинно никогда, поэтому связанный `NULL` молча не находил бы ничего при существующих подходящих строках. Заодно это единственный способ искать `NULL` — отдельного синтаксиса нет;
 - остальные значения проходят то же приведение, что и запись (`bool` → `boolLiteral()`, `DateTimeInterface` → UTC `DATE_ATOM`), так что фильтр и `persist()` одинаково понимают одно и то же значение;
 - сравнение идёт по **сырой** колонке: `readExpr` оборачивает только проекцию.
+
+
+### Списки (`findManyWhere`)
+
+```php
+protected function findManyWhere(array $where, array $orderBy = [], ?int $limit = null, ?int $offset = null): array
+```
+
+Тот же `$where`, что у `findOneWhere` (тот же билдер: `null` ⇒ `IS NULL`, значения через `toBindable()`), тот же явный `SELECT`-список (`readExpr` применяется), результат — `list<object>` через `hydrateRows()`; ничего не нашлось ⇒ `[]`.
+
+```php
+/** @return list<Identity> */
+public function allFor(string $userId): array
+{
+    return $this->findManyWhere(['user_id' => $userId], ['createdAt' => 'asc', 'id' => 'asc']);
+}
+// SELECT "id", "user_id", … FROM "identities" WHERE "user_id" = :w0 ORDER BY "created_at" ASC, "id" ASC
+```
+
+- `$where === []` — легально и означает **полный скан таблицы**; без `$limit` звать только на заведомо маленьких таблицах.
+- `$orderBy` — `ключ => 'asc'|'desc'` (регистр направления не важен), порядок ключей = порядок в `ORDER BY`. Ключ — **только** объявленная на сущности колонка или имя её свойства (`created_at` или `createdAt`, как в `#[CompositeIndex]`); резолвится через метаданные и попадает в SQL через `quoteIdentifier()`. Неизвестный ключ или направление не из `asc`/`desc` ⇒ `InvalidArgumentException` — пользовательский ввод в `ORDER BY` не просачивается.
+- `$limit`/`$offset` подставляются целочисленными литералами (как `LIMIT` в `findNearest` — биндить `LIMIT` в pdo_pgsql ненадёжно). Отрицательные ⇒ `InvalidArgumentException`; `$limit === 0` ⇒ `[]` без запроса; `$offset` без `$limit` ⇒ голый `OFFSET n` (валидно в Postgres; SQLite такого не принимает — Postgres-first).
 
 ### Свой SQL с маппингом в сущности
 

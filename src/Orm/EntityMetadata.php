@@ -27,6 +27,27 @@ final class EntityMetadata
     }
 
     /**
+     * Looks a field up by either its property name or its storage name (column /
+     * document key) — the same dual resolution #[CompositeIndex] columns use.
+     * Property names win on a clash. Returns null for anything unknown, so callers
+     * can refuse to splice the key into a query.
+     */
+    public function fieldFor(string $key): ?FieldMetadata
+    {
+        foreach ($this->fields as $field) {
+            if ($field->property->getName() === $key) {
+                return $field;
+            }
+        }
+        foreach ($this->fields as $field) {
+            if ($field->field === $key) {
+                return $field;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Fields backed by a real SQL column, in declaration order.
      *
      * @return list<FieldMetadata>
