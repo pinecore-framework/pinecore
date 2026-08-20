@@ -8,7 +8,7 @@ SQL-ветка ORM, параллельная Mongo-ветке ([`orm.md`](orm.md
 
 | Атрибут | Колонка в PostgreSQL |
 |---|---|
-| `#[Id]` | первичный ключ (`text`/`uuid` — `IdGenerator` даёт строку) |
+| `#[Id]` | первичный ключ (`text`/`uuid` — `IdGenerator` даёт строку); имя = свойство или `#[Id(name: 'object_id')]` |
 | `#[Field]` | обычная типизированная колонка; имя = свойство или `#[Field(name: 'x')]` |
 | `#[Field]` + тип `DateTimeImmutable` | `timestamptz`; hydrator конвертит автоматически (UTC ↔ `DATE_ATOM`) |
 | `#[Field(readExpr: 'expr(%s)')]` | колонка, обёрнутая SQL-выражением при чтении (см. [«Выражения на чтение»](#выражения-на-чтение)) |
@@ -40,6 +40,7 @@ final class Document implements SqlEntity
 
 - Сущность реализует `SqlEntity` (маркер) — это переключает `EntityMap` на SQL-ветку и делает `#[Table]` обязательным.
 - `#[Id]` пустой (`''`/`null`) при `persist()` → новый id через `IdGenerator`.
+- Колонка PK может называться иначе, чем свойство — `#[Id(name: 'object_id')] public readonly string $objectId` (симметрично `#[Field(name:)]`): `INSERT … ON CONFLICT ("object_id")`, `WHERE "object_id" = :id`, в строке — ключ `object_id`.
 - Семантика отсутствующих полей при хидрации — как в Mongo: default → null → `LogicException`.
 
 ## Объявление репозитория

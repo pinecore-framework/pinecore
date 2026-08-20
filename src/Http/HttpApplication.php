@@ -2,7 +2,7 @@
 
 namespace Pinecore\Pinecore\Http;
 
-use Pinecore\Pinecore\Auth\AuthException;
+use Pinecore\Pinecore\Auth\AuthFailureInterface;
 use Pinecore\Pinecore\Config;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -105,7 +105,8 @@ class HttpApplication
 
             return ($controller)($request);
 
-        } catch (AuthException $e) {
+        } catch (AuthFailureInterface $e) {
+            // AuthException and any application exception carrying the marker.
             return Response::error($e->getMessage(), 401);
         } catch (HttpException $e) {
             return Response::error($e->getMessage(), $e->getCode());

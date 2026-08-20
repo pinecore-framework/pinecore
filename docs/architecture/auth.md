@@ -8,7 +8,8 @@
 | `src/Auth/AuthMiddleware.php` | `AuthMiddleware` | Bearer → JwtService → UserProvider → AuthContext |
 | `src/Auth/AuthContext.php` | `AuthContext` | Обёртка над объектом пользователя |
 | `src/Auth/UserProviderInterface.php` | `UserProviderInterface` | Контракт: `findById(string): ?object` |
-| `src/Auth/AuthException.php` | `AuthException` | → 401 в HttpApplication::dispatch() |
+| `src/Auth/AuthException.php` | `AuthException` | Исключение фреймворка (`final`), реализует маркер → 401 |
+| `src/Auth/AuthFailureInterface.php` | `AuthFailureInterface` | Маркер-интерфейс (без методов): любое исключение с ним → 401 в `HttpApplication::dispatch()` |
 
 ## JwtService (`src/Auth/JwtService.php`)
 
@@ -46,3 +47,24 @@ UserProviderInterface::class => fn($c) => $c->get(UserRepository::class),
 ```
 
 `UserRepository` должен реализовывать `UserProviderInterface` (`findById(string $id): ?object`).
+
+### Свои ошибки аутентификации → 401
+
+`AuthException` — `final`, наследовать его не нужно и нельзя. Чтобы доменная ошибка приложения
+(«неверный логин/пароль», «refresh-токен изъят») попала в тот же 401-контракт, пометьте **своё**
+исключение маркером `AuthFailureInterface`:
+
+```php
+use Pinecore\Pinecore\Auth\AuthFailureInterface;
+
+final class InvalidCredentials extends \RuntimeException implements AuthFailureInterface {}
+
+// в контроллере или middleware:
+throw new InvalidCredentials('Invalid login or password');   // → 401 {"error":"Invalid login or password"}
+```
+
+Работает и из контроллера, и из middleware (`MiddlewarePipeline::run` не ловит исключения — всё
+доходит до `dispatch()`). Сообщение исключения уходит клиенту как есть — не кладите в него ничего
+лишнего. Маркер ловится **раньше** `HttpException` и `\Throwable`: исключение с маркером отвечает
+401 независимо от того, какой код оно само несёт (практически неактуально — `HttpException` `final`,
+но правило порядка catch-блоков именно такое).

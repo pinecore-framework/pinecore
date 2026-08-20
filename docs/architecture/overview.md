@@ -55,7 +55,7 @@ HTTP → /worker.php → worker loop
 ## Обработка исключений в dispatch
 
 В `HttpApplication::dispatch()` ловятся:
-- `AuthException` → 401
+- `AuthFailureInterface` (маркер; его реализует `AuthException` и могут реализовать исключения приложения) → 401
 - `HttpException` → код из исключения
 - `\JsonException` → 400 (невалидный JSON body)
 - `\Throwable` → логируется, 500

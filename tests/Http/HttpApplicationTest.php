@@ -4,15 +4,21 @@ namespace Tests\Pinecore\Pinecore\Http;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Pinecore\Pinecore\Auth\AuthException;
+use Pinecore\Pinecore\Auth\AuthFailureInterface;
 use Pinecore\Pinecore\Config;
 use Pinecore\Pinecore\Http\CorsPolicy;
 use Pinecore\Pinecore\Http\HttpApplication;
+use Pinecore\Pinecore\Http\MiddlewareInterface;
 use Pinecore\Pinecore\Http\MiddlewarePipeline;
+use Pinecore\Pinecore\Http\Request;
 use Pinecore\Pinecore\Http\Response;
 use Pinecore\Pinecore\Http\RouteDefinition;
 use Pinecore\Pinecore\Http\Router;
 use Pinecore\Pinecore\Log\NullLogger;
 use Psr\Container\ContainerInterface;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 
 final class HttpApplicationTest extends TestCase
 {
@@ -162,23 +168,98 @@ final class HttpApplicationTest extends TestCase
         self::assertSame('Origin', $app->capturedHeader('Vary'));
     }
 
+    #[Test]
+    public function frameworkAuthExceptionFromControllerIs401(): void
+    {
+        $app = self::makeApp(controller: static fn() => throw new AuthException('Invalid token'));
+
+        $output = self::captureOutput(fn() => $app->handleRequest(...self::postEcho()));
+
+        self::assertSame(401, http_response_code());
+        self::assertSame('{"error":"Invalid token"}', $output);
+    }
+
+    #[Test]
+    public function applicationExceptionCarryingTheMarkerIs401(): void
+    {
+        $app = self::makeApp(controller: static fn() => throw new DomainAuthFailure('Bad credentials'));
+
+        $output = self::captureOutput(fn() => $app->handleRequest(...self::postEcho()));
+
+        self::assertSame(401, http_response_code());
+        self::assertSame('{"error":"Bad credentials"}', $output);
+    }
+
+    #[Test]
+    public function markerThrownFromMiddlewareIs401(): void
+    {
+        $app = self::makeApp(middleware: [new ThrowingMiddleware(new DomainAuthFailure('Refresh token revoked'))]);
+
+        $output = self::captureOutput(fn() => $app->handleRequest(...self::postEcho()));
+
+        self::assertSame(401, http_response_code());
+        self::assertSame('{"error":"Refresh token revoked"}', $output);
+    }
+
+    #[Test]
+    public function unmarkedRuntimeExceptionStays500AndIsLogged(): void
+    {
+        $logger = new RecordingLogger();
+        $app    = self::makeApp(
+            controller: static fn() => throw new \RuntimeException('db down'),
+            logger: $logger,
+        );
+
+        $output = self::captureOutput(fn() => $app->handleRequest(...self::postEcho()));
+
+        self::assertSame(500, http_response_code());
+        self::assertSame('{"error":"Internal Server Error"}', $output, 'message must not leak');
+        self::assertCount(1, $logger->records);
+        self::assertSame('error', $logger->records[0]['level']);
+        self::assertInstanceOf(\RuntimeException::class, $logger->records[0]['context']['exception']);
+    }
+
+    /** @return array<string, mixed> named arguments for handleRequest(): a POST /echo. */
+    private static function postEcho(): array
+    {
+        return [
+            'get' => [], 'post' => [], 'cookie' => [], 'files' => [],
+            'server' => ['REQUEST_METHOD' => 'POST', 'REQUEST_URI' => '/echo', 'CONTENT_LENGTH' => '0'],
+        ];
+    }
+
     /**
-     * @param list<string>|null $allowedOrigins
+     * @param list<string>|null          $allowedOrigins
+     * @param list<MiddlewareInterface>  $middleware   instances, registered in the container by class
      */
     private static function makeApp(
         string $rawBody = '',
         int $maxBodyBytes = 1024,
         ?array $allowedOrigins = null,
+        ?\Closure $controller = null,
+        array $middleware = [],
+        ?LoggerInterface $logger = null,
     ): object {
-        $controller = static fn() => Response::json(['ok' => true]);
+        $controller ??= static fn() => Response::json(['ok' => true]);
 
-        $container = new class($controller) implements ContainerInterface {
-            public function __construct(private readonly \Closure $controller) {}
-            public function get(string $id): mixed { return $this->controller; }
-            public function has(string $id): bool { return true; }
+        $services = ['EchoController' => $controller];
+        foreach ($middleware as $mw) {
+            $services[$mw::class] = $mw;
+        }
+
+        $container = new class($services) implements ContainerInterface {
+            /** @param array<string, mixed> $services */
+            public function __construct(private readonly array $services) {}
+            public function get(string $id): mixed { return $this->services[$id]; }
+            public function has(string $id): bool { return isset($this->services[$id]); }
         };
 
-        $router   = new Router([new RouteDefinition('POST', '/echo', 'EchoController')]);
+        $router   = new Router([new RouteDefinition(
+            'POST',
+            '/echo',
+            'EchoController',
+            array_map(static fn(MiddlewareInterface $mw): string => $mw::class, $middleware),
+        )]);
         $pipeline = new MiddlewarePipeline($container);
         $config   = new Config([
             'http' => ['max_body_bytes' => $maxBodyBytes],
@@ -190,8 +271,8 @@ final class HttpApplicationTest extends TestCase
                 'max_age'           => 600,
             ]],
         ]);
-        $logger = new NullLogger();
-        $cors   = new CorsPolicy($config);
+        $logger ??= new NullLogger();
+        $cors     = new CorsPolicy($config);
 
         return new class($container, $router, $pipeline, $config, $logger, $cors, $rawBody) extends HttpApplication {
             public int $readCount = 0;
@@ -203,7 +284,7 @@ final class HttpApplicationTest extends TestCase
                 Router             $router,
                 MiddlewarePipeline $pipeline,
                 Config             $config,
-                NullLogger         $logger,
+                LoggerInterface    $logger,
                 CorsPolicy         $cors,
                 private readonly string $rawBody,
             ) {
@@ -238,5 +319,29 @@ final class HttpApplicationTest extends TestCase
             $output = ob_get_clean();
         }
         return $output;
+    }
+}
+
+/** Application-level auth failure: plain RuntimeException tagged with the framework marker. */
+final class DomainAuthFailure extends \RuntimeException implements AuthFailureInterface {}
+
+final class ThrowingMiddleware implements MiddlewareInterface
+{
+    public function __construct(private readonly \Throwable $exception) {}
+
+    public function process(Request $request): Request
+    {
+        throw $this->exception;
+    }
+}
+
+final class RecordingLogger extends AbstractLogger
+{
+    /** @var list<array{level: string, message: string, context: array<string, mixed>}> */
+    public array $records = [];
+
+    public function log($level, string|\Stringable $message, array $context = []): void
+    {
+        $this->records[] = ['level' => (string) $level, 'message' => (string) $message, 'context' => $context];
     }
 }

@@ -183,9 +183,11 @@ final class EntityMap
         $hasDefault = $param !== null && $param->isDefaultValueAvailable();
 
         if (!empty($idAttrs)) {
+            /** @var Id $id */
+            $id = $idAttrs[0]->newInstance();
             return new FieldMetadata(
                 property: $property,
-                field: $property->getName(),
+                field: $id->name ?? $property->getName(),
                 isId: true,
                 type: self::typeName($property),
                 isEmbedded: false,

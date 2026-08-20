@@ -8,6 +8,7 @@
 |---|---|---|
 | `#[Collection(name: 'users')]` | класс entity | Имя коллекции MongoDB |
 | `#[Id]` | свойство | Кастомное поле `id` (строка), НЕ MongoDB `_id` |
+| `#[Id(name: 'user_id')]` | свойство | Ключ документа с другим именем (симметрично `#[Field(name:)]`) |
 | `#[Field]` | свойство | Обычное поле; имя в MongoDB = имя свойства |
 | `#[Field(name: 'x')]` | свойство | Поле с другим именем в MongoDB |
 | `#[Embedded]` | свойство | Вложенный объект (не Entity, просто класс) |
@@ -31,7 +32,7 @@ final class User implements MongoEntity
 }
 ```
 
-- `#[Id]` хранится в документе как поле `id` (не `_id`)
+- `#[Id]` хранится в документе как поле с именем свойства (`id`), не `_id`; `#[Id(name: 'user_id')] public readonly string $userId` кладёт ключ под `user_id` — `findById`/`delete`/`persist` фильтруют по нему
 - MongoDB `_id` остаётся нативным ObjectId, пинекор его игнорирует
 - `array` поля (в т.ч. `string[]`) — `BSONArray` конвертируется в PHP array прозрачно
 - Если `$id === ''` при `persist()`, генерируется новый ID через `IdGenerator`
