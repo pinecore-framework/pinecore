@@ -76,8 +76,8 @@ final class SqlHydratorTest extends TestCase
             createdAt: new \DateTimeImmutable('2026-06-03 15:00:00', new \DateTimeZone('Europe/Moscow')),
         ));
 
-        // Moscow 15:00 (+03:00) → UTC 12:00, DATE_ATOM format.
-        self::assertSame('2026-06-03T12:00:00+00:00', $row['created_at']);
+        // Moscow 15:00 (+03:00) → UTC 12:00, microsecond-precision literal.
+        self::assertSame('2026-06-03T12:00:00.000000+00:00', $row['created_at']);
         self::assertNull($row['deleted_at']);
     }
 
@@ -109,6 +109,61 @@ final class SqlHydratorTest extends TestCase
 
         self::assertEquals($original->createdAt->getTimestamp(), $restored->createdAt->getTimestamp());
         self::assertEquals($original->deletedAt->getTimestamp(), $restored->deletedAt->getTimestamp());
+    }
+
+    #[Test]
+    public function toBindableKeepsMicroseconds(): void
+    {
+        $bound = $this->hydrator->toBindable(new \DateTimeImmutable('2026-06-03 12:00:00.123456'));
+
+        self::assertIsString($bound);
+        self::assertStringContainsString('.123456', $bound);
+    }
+
+    #[Test]
+    public function dateTimeRoundTripPreservesSubSecondPrecision(): void
+    {
+        // getTimestamp() comparison is blind to this: it rounds to whole seconds,
+        // which is exactly how a truncating wire format stayed unnoticed.
+        $original = new TimestampedRow(
+            'e1',
+            new \DateTimeImmutable('2026-01-15T08:30:00.123456+05:00'),
+            new \DateTimeImmutable('2026-02-01T00:00:00.000999+00:00'),
+        );
+
+        $restored = $this->hydrator->hydrate(TimestampedRow::class, $this->hydrator->dehydrate($original));
+
+        self::assertSame($original->createdAt->format('u'), $restored->createdAt->format('u'));
+        self::assertSame($original->deletedAt->format('u'), $restored->deletedAt->format('u'));
+        self::assertEquals($original->createdAt, $restored->createdAt);
+    }
+
+    #[Test]
+    public function timestampsWithinOneSecondStayDistinguishable(): void
+    {
+        // The point of the format, not the format itself: two instants that differ
+        // must keep differing on the wire. Any future precision loss fails here.
+        $earlier = new \DateTimeImmutable('2026-06-03 12:00:00.000001');
+        $later   = new \DateTimeImmutable('2026-06-03 12:00:00.999999');
+
+        self::assertNotSame(
+            $this->hydrator->toBindable($earlier),
+            $this->hydrator->toBindable($later),
+        );
+    }
+
+    #[Test]
+    public function wholeSecondStillBindsAsAValidTimestampLiteral(): void
+    {
+        // No PostgreSQL in the suite, so this pins the shape instead: a whole
+        // second gets a '.000000' tail, which pgsql accepts as the same instant.
+        $bound = $this->hydrator->toBindable(new \DateTimeImmutable('2026-06-03T12:00:00+00:00'));
+
+        self::assertSame('2026-06-03T12:00:00.000000+00:00', $bound);
+        self::assertSame(
+            '2026-06-03T12:00:00+00:00',
+            (new \DateTimeImmutable($bound))->format(\DATE_ATOM),
+        );
     }
 
     #[Test]
@@ -184,7 +239,7 @@ final class SqlHydratorTest extends TestCase
         self::assertSame('f', $this->hydrator->toBindable(false));
         self::assertSame('t', $this->hydrator->toBindable(true));
         self::assertSame(
-            '2026-08-13T09:00:00+00:00',
+            '2026-08-13T09:00:00.000000+00:00',
             $this->hydrator->toBindable(
                 new \DateTimeImmutable('2026-08-13 12:00:00', new \DateTimeZone('Europe/Moscow'))
             ),

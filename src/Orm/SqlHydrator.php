@@ -12,6 +12,22 @@ use Pinecore\Pinecore\Orm\Sql\SqlDialect;
  */
 final class SqlHydrator
 {
+    /**
+     * Wire format for a DateTimeInterface bound as an SQL parameter.
+     *
+     * Deliberately NOT \DATE_ATOM: that format ends at whole seconds, so binding
+     * through it silently truncated every value to 1s while the `timestamptz`
+     * column behind it stores microseconds. Nothing reported the loss — the write
+     * succeeded and the read parsed fine, the instant was just not the one that
+     * was saved, which broke ordering, equality filters and any use of a
+     * timestamp as a concurrency version. Six fractional digits is what
+     * PostgreSQL keeps; asking for more would only be rounded away again.
+     *
+     * If a second SqlDialect ever appears, this belongs there — the literal
+     * format is a property of the database, not of the hydrator.
+     */
+    private const DATETIME_FORMAT = 'Y-m-d\TH:i:s.uP';
+
     public function __construct(
         private readonly SqlDialect $dialect,
     ) {}
@@ -120,7 +136,7 @@ final class SqlHydrator
         if ($value instanceof \DateTimeInterface) {
             return \DateTimeImmutable::createFromInterface($value)
                 ->setTimezone(new \DateTimeZone('UTC'))
-                ->format(\DATE_ATOM);
+                ->format(self::DATETIME_FORMAT);
         }
 
         if (is_bool($value)) {

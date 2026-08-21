@@ -118,7 +118,7 @@ final class SqlWhereBuilderTest extends TestCase
 
         $this->documentRepo($pdo)->firstWhere(['status' => $when]);
 
-        self::assertSame(['w0' => '2026-08-13T09:00:00+00:00'], $pdo->params[0]);
+        self::assertSame(['w0' => '2026-08-13T09:00:00.000000+00:00'], $pdo->params[0]);
     }
 
     #[Test]
