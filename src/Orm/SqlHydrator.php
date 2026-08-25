@@ -97,7 +97,8 @@ final class SqlHydrator
                 } elseif ($field->isPgArray) {
                     $value = $this->dialect->arrayLiteral($value);
                 } elseif ($field->isJson) {
-                    $value = json_encode($value);
+                    // [] is type-ambiguous in PHP; #[Json(asObject:)] resolves it.
+                    $value = $field->jsonAsObject && $value === [] ? '{}' : json_encode($value);
                 } else {
                     $value = $this->toBindable($value);
                 }

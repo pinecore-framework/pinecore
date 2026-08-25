@@ -250,6 +250,7 @@ final class EntityMap
                 isNullable: $isNullable,
                 hasConstructorDefault: $hasDefault,
                 isJson: true,
+                jsonAsObject: $json->asObject,
             );
         }
 

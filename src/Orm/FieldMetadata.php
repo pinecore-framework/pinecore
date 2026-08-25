@@ -17,6 +17,8 @@ final class FieldMetadata
         public readonly bool $isNullable,
         public readonly bool $hasConstructorDefault,
         public readonly bool $isJson = false,
+        /** JSON column is a map: encode an empty array as `{}`, not `[]`. */
+        public readonly bool $jsonAsObject = false,
         public readonly bool $isVector = false,
         public readonly bool $isPgArray = false,
         public readonly int $vectorDim = 0,

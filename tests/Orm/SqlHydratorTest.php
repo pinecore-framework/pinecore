@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
+use Tests\Pinecore\Pinecore\Fixtures\Orm\PropsRow;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\ScalarRow;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\TimestampedRow;
 
@@ -38,6 +39,36 @@ final class SqlHydratorTest extends TestCase
         self::assertSame('[0.1,0.2,0.3]', $row['embedding']); // vector literal
         self::assertSame('{"len":5}', $row['metadata']);      // json encoded
         self::assertSame('active', $row['status']);
+    }
+
+    #[Test]
+    public function asObjectEncodesEmptyArrayAsEmptyJsonObject(): void
+    {
+        $row = $this->hydrator->dehydrate(new PropsRow('r1'));
+
+        // Plain #[Json]: PHP cannot tell an empty map from an empty list, and
+        // the encoder picks the list. #[Json(asObject:)] resolves it by declaration.
+        self::assertSame('[]', $row['metadata']);
+        self::assertSame('{}', $row['props']);
+    }
+
+    #[Test]
+    public function asObjectLeavesNonEmptyValuesAlone(): void
+    {
+        $row = new PropsRow('r1', props: [
+            'tags'  => ['a', 'b'],       // nested list must stay a list (not FORCE_OBJECT)
+            'about' => ['bio' => 'x'],
+        ]);
+
+        self::assertSame('{"tags":["a","b"],"about":{"bio":"x"}}', $this->hydrator->dehydrate($row)['props']);
+    }
+
+    #[Test]
+    public function asObjectRoundTripsThroughHydrate(): void
+    {
+        $restored = $this->hydrator->hydrate(PropsRow::class, ['id' => 'r1', 'props' => '{}', 'metadata' => '[]']);
+
+        self::assertEquals(new PropsRow('r1'), $restored);
     }
 
     #[Test]
