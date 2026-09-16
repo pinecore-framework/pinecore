@@ -38,11 +38,13 @@ JSON-строка на каждое сообщение:
 
 ## Добавление бэкенда
 
-Перекройте биндинг `LoggerInterface` в `config/services.php` своим — `JsonStreamLogger` принимает любой `resource`:
+Перекройте биндинг `LoggerInterface` в `config/services.php` своим — `JsonStreamLogger` принимает любой `resource`.
+`Config` приходит параметром фабрики, а не через `use ($config)`: в prod контейнер компилируется,
+и захватывающее замыкание валит boot (см. [«Компиляция и замыкания»](bootstrap.md#компиляция-и-замыкания-prod)):
 ```php
-LoggerInterface::class => function () use ($config) {
-    $level   = JsonStreamLogger::levelValue((string) $config->get('log.level', 'debug'));
-    $channel = (string) $config->get('log.channel', 'app');
+LoggerInterface::class => function (Config $config) {
+    $level   = JsonStreamLogger::levelValue($config->getString('log.level', 'debug'));
+    $channel = $config->getString('log.channel', 'app');
 
     return new CompositeLogger([
         new JsonStreamLogger(fopen('php://stdout', 'w'), $level, $channel),

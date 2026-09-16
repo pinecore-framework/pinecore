@@ -446,12 +446,14 @@ new ConsoleDefinition(
 Соединение и диалект — на стороне приложения (ядро не знает про конкретную БД, как и в случае Mongo):
 
 ```php
-return function (ContainerBuilder $builder, Config $config): void {
+return function (ContainerBuilder $builder): void {
     $builder->addDefinitions([
-        PDO::class => fn() => new PDO(
-            $config->getString('db.dsn'),       // 'pgsql:host=…;dbname=…'
-            $config->getString('db.user'),
-            $config->getString('db.password'),
+        // Config — параметром, не `use ($config)` / `fn() => …$config…`: prod-контейнер
+        // компилируется и не принимает захватывающие замыкания (bootstrap.md).
+        PDO::class => fn(Config $config) => new PDO(
+            $config->requireString('db.dsn'),       // 'pgsql:host=…;dbname=…'
+            $config->requireString('db.user'),
+            $config->requireString('db.password'),
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
         ),
         SqlDialect::class  => fn() => new PostgresDialect(),

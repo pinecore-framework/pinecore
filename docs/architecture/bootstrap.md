@@ -54,9 +54,14 @@ ContainerFactory::build(Environment $env, Config $config, string $basePath): Con
 ```
 
 - Autowiring включён всегда
-- В prod: `$builder->enableCompilation($basePath . '/var/cache/prod/')`
-- Автоматически регистрирует `Config::class`, `Environment::class` и `LoggerInterface::class`
+- В prod: `$builder->enableCompilation($basePath . '/var/cache/prod/')`. Компилируется **один раз** —
+  при изменении определений чистить `var/cache/prod`
+- Автоматически регистрирует `Config::class`, `Environment::class`, `LoggerInterface::class`
+  и строку `ContainerFactory::BASE_PATH` (`'app.base_path'` — корень приложения из `Kernel::boot`)
   в контейнере — любой класс может получить их через DI без ручного биндинга в `services.php`
+- Фреймворковые фабрики — статические методы `ContainerFactory::createLogger/createRouter/createConsoleRouter`
+  через `DI\factory([...])`; `routes.php`/`commands.php` читаются внутри фабрики по `BASE_PATH`,
+  а не захватываются из `build()` — см. «Компиляция и замыкания» ниже
 - `LoggerInterface` по умолчанию резолвится в `JsonStreamLogger`, пишущий в `php://stdout`;
   если задан `log.file` — добавляется второй `JsonStreamLogger` для файла, оба
   заворачиваются в `CompositeLogger`. Файл открывается на старте — недоступный путь
@@ -89,3 +94,34 @@ return function (ContainerBuilder $builder, Config $config, string $basePath): v
     ]);
 };
 ```
+
+### Компиляция и замыкания (prod)
+
+В prod PHP-DI копирует исходник каждого замыкания-фабрики в сгенерированный класс, поэтому
+замыкание **не может ничего захватывать**. `ContainerBuilder::build()` падает на старте с
+`InvalidDefinition: Cannot compile closures which import variables using the `use` keyword`
+(или `…which use $this or self/static/parent references`). Ошибка не воспроизводится в dev —
+там контейнер не компилируется.
+
+Запрещено в фабриках (и во фреймворке, и в `config/services.php`):
+- `function () use ($config) { … }` — явный захват;
+- `fn() => new PDO($config->getString('db.dsn'))` — arrow-функция захватывает `$config` неявно,
+  для компилятора это тот же `use`;
+- `self::`, `static::`, `$this` внутри замыкания.
+
+Правильно — всё нужное приходит **параметрами**, PHP-DI резолвит их из контейнера по type-hint
+(класс или `ContainerInterface`; скаляры по типу не резолвятся — брать через `$c->get(...)`):
+```php
+return function (ContainerBuilder $builder, Config $config, string $basePath): void {
+    $builder->addDefinitions([
+        PDO::class => fn(Config $config) => new PDO($config->getString('db.dsn'), …),
+        SomeService::class => fn(ContainerInterface $c) => new SomeService(
+            $c->get(ContainerFactory::BASE_PATH) . '/storage',
+        ),
+        LoggerInterface::class => DI\factory([LoggerFactory::class, 'create']),   // статический метод — тоже ок
+    ]);
+};
+```
+`$config` и `$basePath`, которые `services.php` получает аргументами, годятся только для
+решений на этапе сборки (`if ($config->getBool(...)) $builder->addDefinitions(...)`), но не
+внутри фабрик. Регрессия во фреймворке ловится `tests/ContainerCompilationTest.php`.
