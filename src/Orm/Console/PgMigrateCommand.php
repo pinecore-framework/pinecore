@@ -33,7 +33,7 @@ final class PgMigrateCommand
             return;
         }
 
-        $dryRun = (bool) ($input->options['dry-run'] ?? false);
+        $dryRun = (bool) $input->option('dry-run', false);
 
         try {
             if ($dryRun) {

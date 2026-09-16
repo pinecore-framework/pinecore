@@ -26,7 +26,7 @@ final class EnsureIndexesCommand
             return;
         }
 
-        $dryRun = (bool) ($input->options['dry-run'] ?? false);
+        $dryRun = (bool) $input->option('dry-run', false);
 
         foreach ($entities as $class) {
             if (!is_a($class, MongoEntity::class, true)) {

@@ -17,6 +17,18 @@ final class ConsoleInput
     ) {}
 
     /**
+     * Option value by name: `true` for a bare `--flag`, the string for
+     * `--key=value`, the OptionDefinition default when the option was declared
+     * but not passed, and $default only for options nobody declared.
+     * A declared default of null counts as "missing" here, so a caller's
+     * $default still applies — same `??` semantics as reading the array.
+     */
+    public function option(string $name, mixed $default = null): mixed
+    {
+        return $this->options[$name] ?? $default;
+    }
+
+    /**
      * Parse remaining argv tokens into arguments and options,
      * applying defaults from the command definition.
      *

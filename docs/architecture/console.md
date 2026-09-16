@@ -8,7 +8,7 @@
 | `src/Console/ConsoleRouter.php` | `ConsoleRouter` | Аналог HTTP Router для консольных команд |
 | `src/Console/ConsoleDefinition.php` | `ConsoleDefinition` | signature, handler class, description, options[] |
 | `src/Console/OptionDefinition.php` | `OptionDefinition` | name, description, default (false = флаг) |
-| `src/Console/ConsoleInput.php` | `ConsoleInput` | Распарсенные path params + options |
+| `src/Console/ConsoleInput.php` | `ConsoleInput` | Распарсенные `pathParams`, `arguments`, `options`; `option($name, $default = null)` — чтение опции с `??`-семантикой |
 | `src/Console/ConsoleOutput.php` | `ConsoleOutput` | Тонкая обёртка над `League\CLImate` (цвета, прогресс-бары, таблицы), exit code |
 | `src/Console/ConsoleMatch.php` | `ConsoleMatch` | Результат матчинга (аналог RouteMatch) |
 
@@ -39,8 +39,9 @@ final class CreateUserCommand
     public function __invoke(ConsoleInput $input, ConsoleOutput $output): void
     {
         $role   = $input->pathParams['role'];
-        $dryRun = $input->option('dry-run');      // bool для флагов
+        $dryRun = $input->option('dry-run');      // bool для флагов (default из OptionDefinition)
         $email  = $input->option('email');         // string|null для опций
+        $limit  = $input->option('limit', '10');   // второй аргумент — если опция не объявлена или её default null
 
         $output->success("created {$role}");
         $output->setExitCode(0);
