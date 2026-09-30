@@ -23,6 +23,7 @@
 |------|------|
 | Команды запуска, composer, тесты, docker | [`development/commands.md`](development/commands.md) |
 | Соглашения: namespace, code style | [`development/conventions.md`](development/conventions.md) |
+| Версии, релизы, как потребитель получает правку | [`development/releases.md`](development/releases.md) |
 
 ## Architecture Decision Records
 

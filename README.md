@@ -20,10 +20,10 @@ $container->get(WorkerRunner::class)->run();   // SAPI: один запрос
 ## Установка
 
 ```bash
-composer require pinecore/pinecore
+composer require pinecore/pinecore:^0.1
 ```
 
-PHP 8.2+. Слой персистентности опционален — ядро не тянет ни одну БД как `require`, бэкенд подключается по выбору:
+Версии — теги SemVer, см. [docs/development/releases.md](docs/development/releases.md). PHP 8.2+. Слой персистентности опционален — ядро не тянет ни одну БД как `require`, бэкенд подключается по выбору:
 
 - **MongoDB ORM** — `composer require mongodb/mongodb` (+ расширение `ext-mongodb`);
 - **SQL / PostgreSQL ORM (pgvector)** — расширения `ext-pdo` + `ext-pdo_pgsql`, composer-пакетов не нужно.

@@ -32,6 +32,7 @@ Full index: [docs/README.md](docs/README.md)
 - [ORM: SQL / PostgreSQL + pgvector](docs/architecture/orm-sql.md)
 - [Миграции PostgreSQL: pg:migrate](docs/architecture/migrations.md)
 - [Console](docs/architecture/console.md)
+- [Версии и релизы: теги, Packagist, цикл доставки потребителю](docs/development/releases.md)
 
 ## Code Style
 
