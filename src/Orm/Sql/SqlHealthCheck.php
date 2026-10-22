@@ -16,15 +16,17 @@ use Pinecore\Pinecore\WorkerLifecycle;
  * ProcessLoop reads, so the runtime spawns a fresh worker with a live connection
  * and /ready self-heals once the database is back.
  *
- * WorkerLifecycle is the same shared singleton repositories use; pass null outside
- * a worker (console, tests).
+ * WorkerLifecycle is the same shared singleton repositories use. It is required, not
+ * optional: PHP-DI autowiring skips optional constructor parameters, so a nullable
+ * parameter would silently leave the guard off. Outside a worker (console, tests) a
+ * fresh `new WorkerLifecycle()` is harmless — nothing reads the flag.
  */
 final class SqlHealthCheck
 {
     public function __construct(
         private readonly PDO $pdo,
         private readonly SqlDialect $dialect,
-        private readonly ?WorkerLifecycle $lifecycle = null,
+        private readonly WorkerLifecycle $lifecycle,
     ) {}
 
     /**
@@ -39,7 +41,7 @@ final class SqlHealthCheck
             return true;
         } catch (\PDOException $e) {
             if ($this->dialect->isConnectionLost($e)) {
-                $this->lifecycle?->requestShutdown();
+                $this->lifecycle->requestShutdown();
             }
             return false;
         }

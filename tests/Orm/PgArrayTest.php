@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\LabeledRow;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\LabeledRowRepository;
 
@@ -206,6 +207,7 @@ final class PgArrayTest extends TestCase
             $this->dialect,
             $this->hydrator,
             new IdGenerator(),
+            new WorkerLifecycle(),
         );
 
         $this->expectException(\InvalidArgumentException::class);
@@ -222,6 +224,7 @@ final class PgArrayTest extends TestCase
             $this->dialect,
             $this->hydrator,
             new IdGenerator(),
+            new WorkerLifecycle(),
         );
 
         self::assertSame('{"a","b,c"}', $repo->encodeLabels(['a', 'b,c']));

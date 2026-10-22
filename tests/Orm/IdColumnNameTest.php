@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\EntityMap;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\MongoHydrator;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
@@ -152,7 +153,7 @@ final class IdColumnNameTest extends TestCase
     private function repo(PDO $pdo): LinkRowRepository
     {
         $dialect = new PostgresDialect();
-        return new LinkRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new LinkRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 }
 

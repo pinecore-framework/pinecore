@@ -125,7 +125,7 @@ final class MongoFindManyWhereTest extends TestCase
 
     private function repo(RecordingCollection $collection): SimpleUserRepository
     {
-        return new SimpleUserRepository(new CollectionDatabase($collection), new MongoHydrator(), new IdGenerator());
+        return new SimpleUserRepository(new CollectionDatabase($collection), new MongoHydrator(), new IdGenerator(), new WorkerLifecycle());
     }
 }
 

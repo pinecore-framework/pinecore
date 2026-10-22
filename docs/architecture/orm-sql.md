@@ -469,7 +469,11 @@ return function (ContainerBuilder $builder): void {
 
 `AbstractSqlRepository` гоняет все операции через единый guard: на `PDOException` спрашивает `SqlDialect::isConnectionLost($e)` (SQLSTATE класса `08` + `57P01/02/03` + фолбэк по сообщению драйвера). Если соединение потеряно — помечает воркер на завершение через `WorkerLifecycle::requestShutdown()` и **пробрасывает исключение дальше** (запрос отдаёт 5xx). После текущей итерации `ProcessLoop` видит флаг и выходит из цикла — рантайм (RoadRunner/FrankenPHP/…) поднимает свежий воркер с новым коннектом. Ошибка БД уровня запроса (например, нарушение уникальности `23505`) воркер **не** ресайклит.
 
-`WorkerLifecycle` инжектится опционально (`?WorkerLifecycle = null`) — в DI это общий синглтон, тот же, что читает `ProcessLoop`; вне воркера (console, тесты) можно не передавать.
+`WorkerLifecycle` — **обязательный** параметр конструктора (с v0.2.0). В DI это общий синглтон без зависимостей, тот же, что читает `ProcessLoop`; автовайринг инжектит его сам, отдельных определений на каждый репозиторий не нужно. Вне воркера (console, тесты) он так же безвреден: `new WorkerLifecycle()` — флаг, который никто не читает.
+
+Почему не nullable: PHP-DI пропускает необязательные параметры конструктора при автовайринге (`ReflectionBasedAutowiring`: `if ($parameter->isOptional()) continue;`). Пока параметр был `?WorkerLifecycle = null`, каждый автовайренный репозиторий получал `null`, guard молчал, и после рестарта Postgres воркер держал мёртвый PDO до ручного перезапуска. Обязательность делает инжект автоматическим и ловится тестом `tests/LifecycleAutowiringTest.php`.
+
+Guard работает **только** через репозиторий или `SqlHealthCheck`. Сервис, который берёт голый `PDO` в конструктор и ходит в базу сам, его обходит: обрыв соединения там даст `PDOException` без рецикла воркера. Такой код либо переводите на репозиторий, либо оборачивайте вызов сами: `SqlDialect::isConnectionLost($e)` → `WorkerLifecycle::requestShutdown()` → проброс.
 
 ### Readiness-проба (`SqlHealthCheck`)
 
@@ -499,7 +503,7 @@ final class ReadinessController
 }
 ```
 
-`SqlHealthCheck` автовайрится из DI (`PDO` + `SqlDialect` + общий `WorkerLifecycle`-синглтон). Зависит только от PDO-пинга — то же `ext-pdo`, никаких новых зависимостей.
+`SqlHealthCheck` автовайрится из DI (`PDO` + `SqlDialect` + общий `WorkerLifecycle`-синглтон; все три параметра обязательны). Зависит только от PDO-пинга — то же `ext-pdo`, никаких новых зависимостей.
 
 ## Схема и расширение
 

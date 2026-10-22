@@ -6,6 +6,7 @@ use PDO;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\ScalarRow;
@@ -45,7 +46,7 @@ final class SqlBooleanBindingTest extends TestCase
         );
 
         $dialect    = new PostgresDialect();
-        $this->repo = new ScalarRowRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $this->repo = new ScalarRowRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     #[Test]

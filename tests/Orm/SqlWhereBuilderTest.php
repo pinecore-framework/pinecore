@@ -6,6 +6,7 @@ use PDO;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
@@ -43,7 +44,7 @@ final class SqlWhereBuilderTest extends TestCase
         );
 
         $dialect    = new PostgresDialect();
-        $this->repo = new ScalarRowRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $this->repo = new ScalarRowRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     #[Test]
@@ -156,7 +157,7 @@ final class SqlWhereBuilderTest extends TestCase
     private function documentRepo(PDO $pdo): DocumentRepository
     {
         $dialect = new PostgresDialect();
-        return new DocumentRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new DocumentRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 }
 

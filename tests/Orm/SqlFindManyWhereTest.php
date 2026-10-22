@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\ExprRow;
@@ -186,7 +187,7 @@ final class SqlFindManyWhereTest extends TestCase
         $pdo->exec('CREATE TABLE expr_rows (id TEXT PRIMARY KEY, label TEXT NOT NULL, note TEXT)');
 
         $dialect = new PostgresDialect();
-        $repo    = new ExprRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $repo    = new ExprRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
         $repo->save(new ExprRow('e2', 'beta', 'n'));
         $repo->save(new ExprRow('e1', 'alpha'));
 
@@ -207,7 +208,7 @@ final class SqlFindManyWhereTest extends TestCase
     private static function linkRepo(PDO $pdo): LinkRowRepository
     {
         $dialect = new PostgresDialect();
-        return new LinkRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new LinkRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 }
 

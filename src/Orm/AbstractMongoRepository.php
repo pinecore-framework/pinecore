@@ -14,7 +14,7 @@ abstract class AbstractMongoRepository
         private readonly Database $db,
         private readonly MongoHydrator $hydrator,
         private readonly IdGeneratorInterface $ids,
-        private readonly ?WorkerLifecycle $lifecycle = null,
+        private readonly WorkerLifecycle $lifecycle,
     ) {}
 
     /**
@@ -167,7 +167,7 @@ abstract class AbstractMongoRepository
         try {
             return $op();
         } catch (ConnectionException $e) {
-            $this->lifecycle?->requestShutdown();
+            $this->lifecycle->requestShutdown();
             throw $e;
         }
     }

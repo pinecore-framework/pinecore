@@ -6,6 +6,7 @@ use PDO;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\Document;
@@ -41,7 +42,7 @@ final class SqlBatchWriteTest extends TestCase
         );
 
         $dialect    = new PostgresDialect();
-        $this->repo = new DocumentRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $this->repo = new DocumentRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     #[Test]
@@ -165,7 +166,7 @@ final class SqlBatchWriteTest extends TestCase
     {
         $recording = new BatchRecordingPdo($this->pdo);
         $dialect   = new TinyLimitDialect(8);   // 8 params / 6 columns => 1 row per statement
-        $repo      = new DocumentRepository($recording, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $repo      = new DocumentRepository($recording, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
 
         self::assertSame(3, $repo->saveAll([$this->doc('d1'), $this->doc('d2'), $this->doc('d3')], PHP_INT_MAX));
 

@@ -7,6 +7,7 @@ use PDOStatement;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Pinecore\Pinecore\Orm\IdGenerator;
+use Pinecore\Pinecore\WorkerLifecycle;
 use Pinecore\Pinecore\Orm\Sql\PostgresDialect;
 use Pinecore\Pinecore\Orm\SqlHydrator;
 use Tests\Pinecore\Pinecore\Fixtures\Orm\DocumentRepository;
@@ -126,19 +127,19 @@ final class SqlSelectExpressionTest extends TestCase
     private function exprRepoOn(PDO $pdo): ExprRowRepository
     {
         $dialect = new PostgresDialect();
-        return new ExprRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new ExprRowRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     private function geoRepo(PDO $pdo): GeoPlaceRepository
     {
         $dialect = new PostgresDialect();
-        return new GeoPlaceRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new GeoPlaceRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     private function documentRepo(PDO $pdo): DocumentRepository
     {
         $dialect = new PostgresDialect();
-        return new DocumentRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        return new DocumentRepository($pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 }
 

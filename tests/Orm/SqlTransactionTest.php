@@ -43,7 +43,7 @@ final class SqlTransactionTest extends TestCase
         );
 
         $dialect    = new PostgresDialect();
-        $this->repo = new DocumentRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator());
+        $this->repo = new DocumentRepository($this->pdo, $dialect, new SqlHydrator($dialect), new IdGenerator(), new WorkerLifecycle());
     }
 
     #[Test]

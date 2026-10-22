@@ -123,7 +123,7 @@ $runner->run(function ($handler) use ($runner, $health) {
 });
 ```
 
-Флаг остановки вынесен в общий сервис `WorkerLifecycle` (DI-синглтон, без зависимостей): его читает `ProcessLoop` и его же дёргают обработчики сигналов (а `WorkerRunner::requestShutdown()` делегирует туда же). Тот же синглтон инжектится в репозитории — при оборванном соединении с БД (`PDOException`/`ConnectionException`) они вызывают `requestShutdown()`, и воркер ресайклится с живым коннектом. Детали — [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle) и [`orm.md`](orm.md).
+Флаг остановки вынесен в общий сервис `WorkerLifecycle` (DI-синглтон, без зависимостей): его читает `ProcessLoop` и его же дёргают обработчики сигналов (а `WorkerRunner::requestShutdown()` делегирует туда же). Тот же синглтон инжектится в репозитории и `SqlHealthCheck` — при оборванном соединении с БД (`PDOException`/`ConnectionException`) они вызывают `requestShutdown()`, и воркер ресайклится с живым коннектом. Параметр обязательный: nullable параметр PHP-DI при автовайринге пропускает, и guard незаметно отключается. Сервисы с голым `PDO` в конструкторе guard обходят. Детали — [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle) и [`orm.md`](orm.md).
 
 ## Конфигурация
 

@@ -58,7 +58,7 @@ final class UserRepository extends AbstractMongoRepository
 
 ## AbstractMongoRepository (`src/Orm/AbstractMongoRepository.php`)
 
-Инжектируется через DI: `Database`, `MongoHydrator`, `IdGeneratorInterface` (дефолт `IdGenerator`), опц. `WorkerLifecycle`.
+Инжектируется через DI: `Database`, `MongoHydrator`, `IdGeneratorInterface` (дефолт `IdGenerator`), `WorkerLifecycle` (обязателен с v0.2.0 — nullable параметр автовайринг PHP-DI пропускает, и guard обрыва соединения молчал; см. [`orm-sql.md`](orm-sql.md#оборванное-соединение-worker-recycle)).
 
 | Метод | Описание |
 |---|---|

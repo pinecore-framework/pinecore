@@ -15,7 +15,7 @@ abstract class AbstractSqlRepository
         private readonly SqlDialect $dialect,
         private readonly SqlHydrator $hydrator,
         private readonly IdGeneratorInterface $ids,
-        private readonly ?WorkerLifecycle $lifecycle = null,
+        private readonly WorkerLifecycle $lifecycle,
     ) {}
 
     /**
@@ -444,7 +444,7 @@ abstract class AbstractSqlRepository
     private function flagIfConnectionLost(\PDOException $e): void
     {
         if ($this->dialect->isConnectionLost($e)) {
-            $this->lifecycle?->requestShutdown();
+            $this->lifecycle->requestShutdown();
         }
     }
 
