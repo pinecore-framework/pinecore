@@ -156,6 +156,42 @@ final class ConsoleApplicationTest extends TestCase
         self::assertTrue($captured->options['dry-run']);
     }
 
+    #[Test]
+    public function handlerReturnValueBecomesExitCode(): void
+    {
+        $exit = $this->runHandler(static fn(ConsoleInput $in, ConsoleOutput $out): int => 1);
+
+        self::assertSame(1, $exit);
+    }
+
+    #[Test]
+    public function setExitCodeAppliesWhenHandlerReturnsNothingOrZero(): void
+    {
+        self::assertSame(2, $this->runHandler(static function (ConsoleInput $in, ConsoleOutput $out): void {
+            $out->setExitCode(2);
+        }));
+        self::assertSame(3, $this->runHandler(static function (ConsoleInput $in, ConsoleOutput $out): int {
+            $out->setExitCode(3);
+            return 0;
+        }));
+        self::assertSame(0, $this->runHandler(static fn(ConsoleInput $in, ConsoleOutput $out): int => 0));
+    }
+
+    private function runHandler(\Closure $handler): int
+    {
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->with('Handler')->willReturn($handler);
+
+        [$climate] = self::bufferedClimate();
+        $app = new ConsoleApplication(
+            $container,
+            new ConsoleRouter([new ConsoleDefinition('job:run', 'Handler', 'Run job')]),
+            $climate,
+        );
+
+        return $app->run(['bin/console', 'job:run']);
+    }
+
     /** @return array{0: CLImate, 1: Buffer, 2: Buffer} */
     private static function bufferedClimate(): array
     {

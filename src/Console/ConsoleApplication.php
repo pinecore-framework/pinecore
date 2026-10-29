@@ -54,9 +54,11 @@ final class ConsoleApplication
         $output  = new ConsoleOutput($this->climate);
         $handler = $this->container->get($match->definition->handler);
 
-        ($handler)($input, $output);
+        // A non-zero int returned by the handler is the exit code; otherwise (void, 0) fall back to
+        // whatever the handler set on the output.
+        $code = ($handler)($input, $output);
 
-        return $output->getExitCode();
+        return is_int($code) && $code !== 0 ? $code : $output->getExitCode();
     }
 
     private function printHelp(?string $target = null): void

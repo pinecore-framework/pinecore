@@ -36,7 +36,7 @@ Invokable-класс, резолвится через DI:
 ```php
 final class CreateUserCommand
 {
-    public function __invoke(ConsoleInput $input, ConsoleOutput $output): void
+    public function __invoke(ConsoleInput $input, ConsoleOutput $output): int
     {
         $role   = $input->pathParams['role'];
         $dryRun = $input->option('dry-run');      // bool для флагов (default из OptionDefinition)
@@ -44,10 +44,14 @@ final class CreateUserCommand
         $limit  = $input->option('limit', '10');   // второй аргумент — если опция не объявлена или её default null
 
         $output->success("created {$role}");
-        $output->setExitCode(0);
+        return 0;
     }
 }
 ```
+
+Exit code процесса: ненулевой `int`, который вернул `__invoke`, — это код выхода. Если handler вернул `0` или
+ничего (`void`), берётся `$output->setExitCode()` (по умолчанию `0`). То есть `return 1` и `setExitCode(1)`
+равнозначны; при обоих сразу побеждает возвращённый ненулевой код.
 
 ## ConsoleOutput
 
